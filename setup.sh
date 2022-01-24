@@ -16,13 +16,14 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
         mkdir scratch
 
         # General tools
-        sudo apt install -y sysstat g++ subversion automake libtool python-dev python2.7-dev make cmake
+        sudo apt install -y sysstat g++ subversion automake libtool python-dev python2.7-dev make cmake python3-pip
 
         # Tools for each specific benchmark
         sudo apt install -y zlib1g-dev libopencv-dev libboost-dev swift libicu-dev libboost-all-dev libbz2-dev \
                             liblzma-dev graphviz imagemagick libgoogle-perftools-dev ant uuid-dev \
                             libjemalloc-dev libnuma-dev libdb-dev libdb++-dev libaio-dev libssl-dev swig bison \
                             libreadline-dev libgtop2-dev libncurses-dev libpulse-dev libxapian-dev
+        pip3 install numpy pandas matplotlib scipy
 
         # Build each individual test
         if [ "`command -v gcc-5`" == "" ]; then
