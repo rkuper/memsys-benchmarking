@@ -72,7 +72,6 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
         sudo apt install -y build-essential autoconf automake libpcre3-dev libevent-dev pkg-config zlib1g-dev
 
         # Build
-        cd ${BENCHMARK}
         autoreconf -ivf; ./configure
         make; sudo make install
         cd ..
