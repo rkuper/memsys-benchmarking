@@ -78,7 +78,7 @@ declare -a MEMTIER_TYPES=("Sets" "Gets" "Totals")
 
 # NOTE: MEMTIER_METRICS are their indices!
 declare -a TAIL_METRICS=("50th" "75th" "90th" "95th" "99th" "99.9th" "99.99th" "Mean" "Max")
-declare -a YCSB_METRICS=("50th" "75th" "90th" "95th" "99th" "99.9th" "99.99th" "MaxLatency" "AverageLatency")
+declare -a YCSB_METRICS=("50th" "75th" "90th" "95th" "99th" "99.9Per" "99.99Per" "MaxLatency" "AverageLatency")
 declare -a MEMTIER_METRICS=("6" "7" "8" "9" "10" "11" "12" "6" "13")
 
 
@@ -90,9 +90,9 @@ declare -a MEMTIER_METRICS=("6" "7" "8" "9" "10" "11" "12" "6" "13")
 if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
   for BENCHMARK in "${BENCHMARKS[@]}"; do
     echo "##########################"
-    echo "#                          #"
+    echo "#                         #"
     echo "#        ${BENCHMARK}         #"
-    echo "#                          #"
+    echo "#                         #"
     echo "##########################"
     echo ""
 
@@ -117,11 +117,12 @@ if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
                 sudo pcm --external_program sudo pcm-memory --external_program \
                   sudo numactl --cpunodebind=0 \
                   --membind=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || ([ "$MEM_CONFIG" == "pmem" ] && echo "3" || echo "0-3")) \
-                  ./run_${TAIL_CONFIG}.sh > ${MEM_CONFIG}_${TAIL_CONFIG}_${RUN}.txt
+                  ./run_${TAIL_CONFIG}.sh \
+                  > ../../results/${BENCHMARK}/${TAIL_BENCHMARK}/${MEM_CONFIG}_${TAIL_CONFIG}_${RUN}.txt
                 if [ -f "lats.bin" ];
                 then
-                  python3 ../utilities/parselats.py lats.bin > lats_${MEM_CONFIG}_${TAIL_CONFIG}_${RUN}.txt
-                  mv *${MEM_CONFIG}_${TAIL_CONFIG}_${RUN}.txt ../../results/${BENCHMARK}/${TAIL_BENCHMARK}
+                  python3 ../utilities/parselats.py lats.bin \
+                    > ../../results/${BENCHMARK}/${TAIL_BENCHMARK}/lats_${MEM_CONFIG}_${TAIL_CONFIG}_${RUN}.txt
                   rm lats.bin
                 fi
                 echo ""
@@ -151,7 +152,7 @@ if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
                 sudo pcm --external_program sudo pcm-memory --external_program \
                   sudo numactl --cpunodebind=0 \
                   --membind=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || ([ "$MEM_CONFIG" == "pmem" ] && echo "3" || echo "0-3")) \
-                  bin/ycsb ${YCSB_CONFIG} redis -s -P workloads/workloadd -p "redis.host=127.0.0.1" -P config.dat \
+                  bin/ycsb ${YCSB_CONFIG} redis -s -P workloads/workload${YCSB_BENCHMARK} -p "redis.host=127.0.0.1" -P config.dat \
                   > ../results/${BENCHMARK}/${YCSB_BENCHMARK}/${MEM_CONFIG}_${YCSB_CONFIG}_${RUN}.txt
                   echo ""
               done
@@ -178,7 +179,7 @@ if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
               sudo numactl --cpunodebind=0 \
               --membind=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || ([ "$MEM_CONFIG" == "pmem" ] && echo "3" || echo "0-3")) \
               memtier_benchmark --pipeline=11 -c 20 -t 1 -d 500 --key-maximum=75000000 --key-pattern=G:G \
-              --ratio=1:1 --distinct-client-seed --randomize --test-time=100 --run-count=1 \
+              --ratio=1:1 --distinct-client-seed --randomize --test-time=120 --run-count=1 \
               --key-stddev=5125000 --print-percentiles 50,75,90,95,99,99.9,99.99,100 \
               > ../results/${BENCHMARK}/${MEM_CONFIG}_${RUN}.txt
             echo ""
@@ -252,9 +253,9 @@ if [ "$PROCESS" == "true" ]; then
     for BENCHMARK in "${BENCHMARKS[@]}"; do
 
       echo "##########################"
-      echo "#                          #"
+      echo "#                         #"
       echo "#        ${BENCHMARK}         #"
-      echo "#                          #"
+      echo "#                         #"
       echo "##########################"
       echo ""
       cd $BENCHMARK
@@ -262,9 +263,9 @@ if [ "$PROCESS" == "true" ]; then
       case $BENCHMARK in
         tailbench)
           for TAIL_BENCHMARK in "${TAIL_BENCHMARKS[@]}"; do
-            echo "=========================="
+            echo "============================"
             echo "=        ${TAIL_BENCHMARK}         ="
-            echo "=========================="
+            echo "============================"
             echo ""
             cd ${TAIL_BENCHMARK}
 
@@ -305,16 +306,16 @@ if [ "$PROCESS" == "true" ]; then
 
         ycsb)
           for YCSB_BENCHMARK in "${YCSB_BENCHMARKS[@]}"; do
-            echo "=========================="
-            echo "=        ${YCSB_BENCHMARK}         ="
-            echo "=========================="
+            echo "============================="
+            echo "=        Workload ${YCSB_BENCHMARK}         ="
+            echo "============================="
             echo ""
             cd ${YCSB_BENCHMARK}
 
             for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
               for YCSB_CONFIG in "${YCSB_CONFIGS[@]}"; do
-                echo "$MEM_CONFIG $YCSB_CONFIG"
-                echo "------------------"
+                echo "$MEM_CONFIG - $YCSB_CONFIG:"
+                echo "============"
 
                 # Metrics for tail latency reported by ycsb
                 #############################################
@@ -326,18 +327,18 @@ if [ "$PROCESS" == "true" ]; then
                     if [ -f "${MEM_CONFIG}_${YCSB_CONFIG}_1.txt" ]; then
                       if [ "$CONTEXT" == "true" ]; then
                         echo "[$YCSB_TYPE] $YCSB_METRIC (ms): " \
-                          `awk '/\['"$YCSB_TYPE"'\], '"$YCSB_METRIC"'/ {sum += $4; n++} END {if (n > 0) print sum / n}' \
+                          `awk '/\['"$YCSB_TYPE"'\], '"$YCSB_METRIC"'/ {sum += $3; n++} END {if (n > 0) print sum / n}' \
                           ${MEM_CONFIG}_${YCSB_CONFIG}_*.txt`
                       else
-                        echo `awk '/\['"$YCSB_TYPE"'\], '"$YCSB_METRIC"'/ {sum += $4; n++} END {if (n > 0) print sum / n}' \
+                        echo `awk '/\['"$YCSB_TYPE"'\], '"$YCSB_METRIC"'/ {sum += $3; n++} END {if (n > 0) print sum / n}' \
                           ${MEM_CONFIG}_${YCSB_CONFIG}_*.txt`
                       fi
                     fi
                   done
-                echo ""
+                  echo ""
+                  PCM_FILE=${MEM_CONFIG}_${YCSB_CONFIG}_*.txt
+                  general_pcm_parsing "${PCM_FILE}" "${MEM_CONFIG}"
                 done
-                PCM_FILE=${MEM_CONFIG}_${YCSB_CONFIG}_*.txt
-                general_pcm_parsing "${PCM_FILE}" "${MEM_CONFIG}"
                 echo ""
               done
               echo ""; echo "";
@@ -354,11 +355,13 @@ if [ "$PROCESS" == "true" ]; then
           echo ""
 
           for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
+            echo "$MEM_CONFIG:"
+            echo "--------------"
             for MEMTIER_TYPE in "${MEMTIER_TYPES[@]}"; do
-              echo "$MEM_CONFIG - $MEMTIER_TYPE:"
+              echo "$MEMTIER_TYPE:"
               for MEMTIER_METRIC in "${MEMTIER_METRICS[@]}"; do
                 if [ -f "${MEM_CONFIG}_1.txt" ]; then
-                  echo `awk '/'"$MEMTIER_TYPES"'/ {sum += $'"$MEMTIER_METIC"'; n++} END {if (n > 0) print sum / n}' \
+                  echo `awk '/'"$MEMTIER_TYPES"'/ {sum += $'"$MEMTIER_METRIC"'; n++} END {if (n > 0) print sum / n}' \
                     ${MEM_CONFIG}_*.txt`
                 fi
               done
