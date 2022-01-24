@@ -48,7 +48,7 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
         wget http://tailbench.csail.mit.edu/tailbench.inputs.tgz -O data.tgz
         tar zxf data.tgz; mv tailbench.inputs data
         rm -f data.tgz
-        cd ..; sudo chmod -R 766 ${BENCHMARK}
+        cd ..
         ;;
 
 
@@ -59,8 +59,6 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
 
         # Dependencies
         sudo apt install -y redis memcached libmemcached-dev
-        
-        sudo chmod -R 766 ${BENCHMARK}
         ;;
 
 
@@ -76,7 +74,7 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
         cd ${BENCHMARK}
         autoreconf -ivf; ./configure
         make; sudo make install
-        cd ..; sudo chmod -R 766 ${BENCHMARK}
+        cd ..
         ;;
 
       *)
