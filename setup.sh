@@ -56,7 +56,7 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
 
       ycsb)
         # Clone
-        git clone https://github.com/brianfrankcooper/YCSB.git ${BENCHMARK}
+        git clone https://github.com/rkuper/YCSB.git ${BENCHMARK}
 
         # Dependencies
         sudo apt install -y redis memcached libmemcached-dev
