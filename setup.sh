@@ -45,9 +45,9 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
         `sudo update-alternatives --config gcc <<< '0'; echo ""`
 
         # Grab the datasets
-        # wget http://tailbench.csail.mit.edu/tailbench.inputs.tgz -O data.tgz
-        # tar zxf data.tgz; mv tailbench.inputs data
-        # rm -f data.tgz
+        wget http://tailbench.csail.mit.edu/tailbench.inputs.tgz -O data.tgz
+        tar zxf data.tgz; mv tailbench.inputs data
+        rm -f data.tgz
         cd ..
         ;;
 
