@@ -6,7 +6,7 @@ while [[ $# -gt 0 ]]; do
 
   case $key in
     -b|--benchmarks)
-      BENCHMARK_SUITES="$2"
+      BENCHMARKS="$2"
       shift
       shift
       ;;
@@ -32,8 +32,8 @@ while [[ $# -gt 0 ]]; do
       CONTEXT="$2"
       shift
       ;;
-    -e|--run_benchmarks)
-      RUN_BENCHMARKS="$2"
+    -e|--execute_benchmarks)
+      EXECUTE_BENCHMARKS="$2"
       shift
       ;;
     -p|--process)
@@ -47,9 +47,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-BENCHMARK_SUITES=$([ "$BENCHMARK_SUITES" == "all" -o -z "${BENCHMARK_SUITES+x}" -o "$BENCHMARK_SUITES" == "" ] \
-  && echo "tailbench ycsb memtier" || echo "$BENCHMARK_SUITES")
-BENCHMARK_SUITES=($BENCHMARK_SUITES)
+BENCHMARKS=$([ "$BENCHMARKS" == "all" -o -z "${BENCHMARKS+x}" -o "$BENCHMARKS" == "" ] \
+  && echo "tailbench ycsb memtier" || echo "$BENCHMARKS")
+BENCHMARKS=($BENCHMARKS)
 
 declare -a TAIL_BENCHMARKS=("img-dnn" "masstree" "moses" "silo" "specjbb" "sphinx" "xapian")
 declare -a YCSB_BENCHMARKS=("a" "b" "c" "f" "d")
@@ -67,7 +67,7 @@ TOTAL_RUNS=$([[ -v TOTAL_RUNS && $TOTAL_RUNS =~ $REGEX_NUM ]] && echo "$TOTAL_RU
 
 KEEP_LOGS=$([ -v KEEP_LOGS -o -z KEEP_LOGS ] && echo "true" || echo "false")
 CONTEXT=$([ -v CONTEXT -o -z CONTEXT ] && echo "true" || echo "false")
-RUN_BENCHMARKS=$([ -v RUN_BENCHMARKS -o -z RUN_BENCHMARKS ] && echo "true" || echo "false")
+EXECUTE_BENCHMARKS=$([ -v EXECUTE_BENCHMARKS -o -z EXECUTE_BENCHMARKS ] && echo "true" || echo "false")
 PROCESS=$([ -v PROCESS -o -z PROCESS ] && echo "true" || echo "false")
 OUTPUT_FILE=$([ -v OUTPUT_FILE ] && echo "$OUTPUT_FILE" || echo "results.txt")
 OUTPUT_PATH=`pwd`/results/${OUTPUT_FILE}
@@ -87,7 +87,7 @@ declare -a MEMTIER_METRICS=("6" "7" "8" "9" "10" "11" "12" "6" "13")
 ####################################
 #            Benchmarks            #
 ####################################
-if [ "$RUN_BENCHMARKS" == "true" ]; then
+if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
   for BENCHMARK in "${BENCHMARKS[@]}"; do
     echo "##########################"
     echo "#                          #"
