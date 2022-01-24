@@ -1,13 +1,13 @@
 #!/bin/bash
 # Main setup script for all benchmarks
 
-declare -a BENCHMARKS=$("tailbench" "ycsb" "memtier")
-declare -a TAIL_BENCHMARKS=("harness img-dnn masstree moses silo specjbb sphinx xapian")
+declare -a BENCHMARKS=("tailbench" "ycsb" "memtier")
+declare -a TAIL_BENCHMARKS=("harness" "img-dnn" "masstree" "moses" "silo" "specjbb" "sphinx" "xapian")
 
 sudo apt install -y htop numatop ipmctl ndctl openjdk-8-jdk
 
 for BENCHMARK in "${BENCHMARKS[@]}"; do
-  if [ -d "${BENCHMARK}" ]; then
+  if [ ! -d "${BENCHMARK}" ]; then
     mkdir results/${BENCHMARK}
     case $BENCHMARK in
       tailbench)
@@ -20,7 +20,7 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
 
         # Tools for each specific benchmark
         sudo apt install -y zlib1g-dev libopencv-dev libboost-dev swift libicu-dev libboost-all-dev libbz2-dev \
-                            liblzma-dev graphviz imagemagick libgoogle-perftools-dev ant libxapian-dev uuid-dev \
+                            liblzma-dev graphviz imagemagick libgoogle-perftools-dev ant uuid-dev \
                             libjemalloc-dev libnuma-dev libdb-dev libdb++-dev libaio-dev libssl-dev swig bison \
                             libreadline-dev libgtop2-dev libncurses-dev libpulse-dev
 
@@ -55,7 +55,7 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
 
       ycsb)
         # Clone
-        git clone https://github.com/brianfrankcooper/YCSB.git ${BENCHMARK}; cd ${BENCHMARK}
+        git clone https://github.com/brianfrankcooper/YCSB.git ${BENCHMARK}
 
         # Dependencies
         sudo apt install -y redis memcached libmemcached-dev
