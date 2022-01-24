@@ -22,13 +22,13 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
         sudo apt install -y zlib1g-dev libopencv-dev libboost-dev swift libicu-dev libboost-all-dev libbz2-dev \
                             liblzma-dev graphviz imagemagick libgoogle-perftools-dev ant uuid-dev \
                             libjemalloc-dev libnuma-dev libdb-dev libdb++-dev libaio-dev libssl-dev swig bison \
-                            libreadline-dev libgtop2-dev libncurses-dev libpulse-dev
+                            libreadline-dev libgtop2-dev libncurses-dev libpulse-dev libxapian-dev
 
         # Build each individual test
         if [ "`command -v gcc-5`" == "" ]; then
           if [ "`sudo grep 'deb http://dk.archive.ubuntu.com/ubuntu/ xenial main' /etc/apt/sources.list`" == "" ]; then
-            echo "deb http://dk.archive.ubuntu.com/ubuntu/ xenial main" | sudo tee -a /etc/apt/sources.list
-            echo "deb http://dk.archive.ubuntu.com/ubuntu/ xenial universe" | sudo tee -a /etc/apt/sources.list
+            echo "deb http://dk.archive.ubuntu.com/ubuntu/ bionic main" | sudo tee -a /etc/apt/sources.list
+            echo "deb http://dk.archive.ubuntu.com/ubuntu/ bionic universe" | sudo tee -a /etc/apt/sources.list
             sudo apt update
             sudo apt install -y gcc-5 g++-5 g++-5-multilib
           fi
@@ -45,9 +45,9 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
         `sudo update-alternatives --config gcc <<< '0'; echo ""`
 
         # Grab the datasets
-        wget http://tailbench.csail.mit.edu/tailbench.inputs.tgz -O data.tgz
-        tar zxf data.tgz; mv tailbench.inputs data
-        rm -f data.tgz
+        # wget http://tailbench.csail.mit.edu/tailbench.inputs.tgz -O data.tgz
+        # tar zxf data.tgz; mv tailbench.inputs data
+        # rm -f data.tgz
         cd ..
         ;;
 
