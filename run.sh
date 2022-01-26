@@ -206,39 +206,44 @@ fi
 ####################################
 
 # General helper for parsing pcm data
-# $1 = Log file
-# $2 = MEM_CONFIG
+# $1 = Sample log file for checking existence of logs
+# $2 = Wildcard log files for averaging results across runs
+# $3 = MEM_CONFIG
 general_pcm_parsing() {
-  PCM_MEM_CONFIG_SEARCH=$([ "$2" == "dram" ] && echo "DRAM" || ([ "$2" == "pmem" ] && echo "PMM" || echo "System"))
+  PCM_MEM_CONFIG_SEARCH=$([ "$3" == "dram" ] && echo "DRAM" || ([ "$3" == "pmem" ] && echo "PMM" || echo "System"))
   THROUGHPUT_INDEX=$([ "$PCM_MEM_CONFIG_SEARCH" == "System" ] && echo "5" || echo "6")
 
   if [ -f "$1" ]; then
     if [ "$CONTEXT" == "true" ]; then
       echo "[OVERALL] LLCRDMISSLAT(ns): " \
-        `awk '/LLCRDMISSLAT / {getline; getline; sum += $11; n++} END {if (n > 0) print sum / n}' $1`
+        `awk '/LLCRDMISSLAT / {getline; getline; sum += $11; n++} END \
+        {if (n > 0) {print sum / n} else {print "Null"}}' $2`
 
       echo "[OVERALL] DIMM Energy(J): " \
-        `awk '/LLCRDMISSLAT / {getline; getline; sum += $10; n++} END {if (n > 0) print sum / n}' $1`
+        `awk '/LLCRDMISSLAT / {getline; getline; sum += $10; n++} END \
+        {if (n > 0) {print sum / n} else {print "Null"}}' $2`
 
       echo "[OVERALL] ${PCM_MEM_CONFIG_SEARCH} Read Throughput(MB/s): "\
         `awk '/'"$PCM_MEM_CONFIG_SEARCH"' Read Throughput/ {sum += $'"$THROUGHPUT_INDEX"'; n++} END \
-        {if (n > 0) print sum / n}' $1`
+        {if (n > 0) print sum / n}' $2`
 
       echo "[OVERALL] ${PCM_MEM_CONFIG_SEARCH} Write Throughput(MB/s): "\
         `awk '/'"$PCM_MEM_CONFIG_SEARCH"' Write Throughput/ {sum += $'"$THROUGHPUT_INDEX"'; n++} END \
-        {if (n > 0) print sum / n}' $1`
+        {if (n > 0) {print sum / n} else {print "Null"}}' $2`
 
     else
       echo "Overall:"
-      echo `awk '/LLCRDMISSLAT / {getline; getline; sum += $11; n++} END { if (n > 0) print sum / n; }' $1`
+      echo `awk '/LLCRDMISSLAT / {getline; getline; sum += $11; n++} END \
+        { if (n > 0) {print sum / n;} else {print "Null"} }' $2`
 
-      echo `awk '/DIMM energy / {getline; getline; sum += $10; n++} END { if (n > 0) print sum / n; }' $1`
+      echo `awk '/DIMM energy / {getline; getline; sum += $10; n++} END \
+        { if (n > 0) {print sum / n;} else {print "Null"} }' $2`
 
       echo `awk '/'"$PCM_MEM_CONFIG_SEARCH"' Read Throughput/ {sum += $'"$THROUGHPUT_INDEX"'; n++} END \
-        { if (n > 0) print sum / n; }' $1`
+        { if (n > 0) {print sum / n;} else {print "Null"} }' $2`
 
       echo `awk '/'"$PCM_MEM_CONFIG_SEARCH"' Write Throughput/ {sum += $'"$THROUGHPUT_INDEX"'; n++} END \
-        { if (n > 0) print sum / n; }' $1`
+        { if (n > 0) {print sum / n;} else {print "Null"} }' $2`
         # ${MEM_CONFIG}_${TAIL_CONFIG}_*_perf.txt
     fi
   fi
@@ -283,18 +288,24 @@ if [ "$PROCESS" == "true" ]; then
                     if [ -f "lats_${MEM_CONFIG}_${TAIL_CONFIG}_1.txt" ]; then
                       if [ "$CONTEXT" == "true" ]; then
                         echo "[$TAIL_TYPE] $TAIL_METRIC: " \
-                          `awk '/\['"$TAIL_TYPE"'\] '"$TAIL_METRIC"'/ {sum += $5; n++} END { if (n > 0) print sum / n; print "ms" }' \
+                          `awk '/\['"$TAIL_TYPE"'\] '"$TAIL_METRIC"'/ {sum += $5; n++} END \
+                          { if (n > 0) {print sum / n; print "ms"} else {print "Null"} }' \
                           lats_${MEM_CONFIG}_${TAIL_CONFIG}_*.txt`
                       else
-                        echo `awk '/\['"$TAIL_TYPE"'\] '"$TAIL_METRIC"'/ {sum += $5; n++} END { if (n > 0) print sum / n }' \
+                        echo `awk '/\['"$TAIL_TYPE"'\] '"$TAIL_METRIC"'/ {sum += $5; n++} END \
+                          { if (n > 0) {print sum / n} else {print "Null"}}' \
                           lats_${MEM_CONFIG}_${TAIL_CONFIG}_*.txt`
                       fi
+                    else
+                      echo "Log file not found (failed test?)"
+                      break
                     fi
                   done
                 echo ""
                 done
-                PCM_FILE=${MEM_CONFIG}_${TAIL_CONFIG}_*.txt
-                general_pcm_parsing "${PCM_FILE}" "${MEM_CONFIG}"
+                SAMPLE_PCM_FILE=${MEM_CONFIG}_${TAIL_CONFIG}_1.txt
+                PCM_FILES=${MEM_CONFIG}_${TAIL_CONFIG}_*.txt
+                general_pcm_parsing "${SAMPLE_PCM_FILE}" "${PCM_FILES}" "${MEM_CONFIG}"
                 echo ""
               done
               echo ""; echo "";
@@ -327,18 +338,22 @@ if [ "$PROCESS" == "true" ]; then
                     if [ -f "${MEM_CONFIG}_${YCSB_CONFIG}_1.txt" ]; then
                       if [ "$CONTEXT" == "true" ]; then
                         echo "[$YCSB_TYPE] $YCSB_METRIC (ms): " \
-                          `awk '/\['"$YCSB_TYPE"'\], '"$YCSB_METRIC"'/ {sum += $3; n++} END {if (n > 0) print sum / n}' \
+                          `awk '/\['"$YCSB_TYPE"'\], '"$YCSB_METRIC"'/ {sum += $3; n++} END \
+                          {if (n > 0) {print sum / n} else {print "Null"}}' \
                           ${MEM_CONFIG}_${YCSB_CONFIG}_*.txt`
                       else
-                        echo `awk '/\['"$YCSB_TYPE"'\], '"$YCSB_METRIC"'/ {sum += $3; n++} END {if (n > 0) print sum / n}' \
+                        echo `awk '/\['"$YCSB_TYPE"'\], '"$YCSB_METRIC"'/ {sum += $3; n++} END \
+                          {if (n > 0) {print sum / n} else {print "Null"}}' \
                           ${MEM_CONFIG}_${YCSB_CONFIG}_*.txt`
                       fi
                     fi
                   done
                   echo ""
-                  PCM_FILE=${MEM_CONFIG}_${YCSB_CONFIG}_*.txt
-                  general_pcm_parsing "${PCM_FILE}" "${MEM_CONFIG}"
                 done
+
+                SAMPLE_PCM_FILE=${MEM_CONFIG}_${YCSB_CONFIG}_1.txt
+                PCM_FILES=${MEM_CONFIG}_${YCSB_CONFIG}_*.txt
+                general_pcm_parsing "${SAMPLE_PCM_FILE}" "${PCM_FILES}" "${MEM_CONFIG}"
                 echo ""
               done
               echo ""; echo "";
@@ -361,15 +376,18 @@ if [ "$PROCESS" == "true" ]; then
               echo "$MEMTIER_TYPE:"
               for MEMTIER_METRIC in "${MEMTIER_METRICS[@]}"; do
                 if [ -f "${MEM_CONFIG}_1.txt" ]; then
-                  echo `awk '/'"$MEMTIER_TYPES"'/ {sum += $'"$MEMTIER_METRIC"'; n++} END {if (n > 0) print sum / n}' \
+                  echo `awk '/'"$MEMTIER_TYPES"'/ {sum += $'"$MEMTIER_METRIC"'; n++} END \
+                    {if (n > 0) {print sum / n} else {print "Null"}}' \
                     ${MEM_CONFIG}_*.txt`
                 fi
               done
               echo ""
 
             done
-            PCM_FILE=${MEM_CONFIG}_${YCSB_CONFIG}_*.txt
-            general_pcm_parsing "${PCM_FILE}" "${MEM_CONFIG}"
+            SAMPLE_PCM_FILE=${MEM_CONFIG}_1.txt
+            PCM_FILES=${MEM_CONFIG}_*.txt
+            general_pcm_parsing "${SAMPLE_PCM_FILE}" "${PCM_FILES}" "${MEM_CONFIG}"
+            echo ""; echo ""; echo ""
           done
           ;;
 
