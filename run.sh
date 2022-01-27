@@ -77,9 +77,9 @@ declare -a YCSB_TYPES=("INSERT" "READ" "UPDATE" "READ-MODIFY-WRITE")
 declare -a MEMTIER_TYPES=("Sets" "Gets" "Totals")
 
 # NOTE: MEMTIER_METRICS are their indices!
-declare -a TAIL_METRICS=("50th" "75th" "90th" "95th" "99th" "99.9th" "99.99th" "Mean" "Max")
+declare -a TAIL_METRICS=("50th" "75th" "90th" "95th" "99th" "99.9th" "99.99th" "Max" "Mean")
 declare -a YCSB_METRICS=("50th" "75th" "90th" "95th" "99th" "99.9Per" "99.99Per" "MaxLatency" "AverageLatency")
-declare -a MEMTIER_METRICS=("6" "7" "8" "9" "10" "11" "12" "6" "13")
+declare -a MEMTIER_METRICS=("6" "7" "8" "9" "10" "11" "12" "13" "6")
 
 
 
