@@ -57,7 +57,7 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
 
       ycsb)
         # Clone
-        git clone https://github.com/brianfrankcooper/YCSB.git ${BENCHMARK}
+        git clone https://github.com/rkuper/YCSB.git ${BENCHMARK}
         mkdir results/${BENCHMARK}/a results/${BENCHMARK}/b results/${BENCHMARK}/c results/${BENCHMARK}/d results/${BENCHMARK}/f
 
         # Dependencies
