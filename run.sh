@@ -219,10 +219,6 @@ general_pcm_parsing() {
         `awk '/LLCRDMISSLAT / {getline; getline; sum += $11; n++} END \
         {if (n > 0) {print sum / n} else {print "Null"}}' $2`
 
-      echo "[OVERALL] DIMM Energy(J): " \
-        `awk '/LLCRDMISSLAT / {getline; getline; sum += $10; n++} END \
-        {if (n > 0) {print sum / n} else {print "Null"}}' $2`
-
       echo "[OVERALL] ${PCM_MEM_CONFIG_SEARCH} Read Throughput(MB/s): "\
         `awk '/'"$PCM_MEM_CONFIG_SEARCH"' Read Throughput/ {sum += $'"$THROUGHPUT_INDEX"'; n++} END \
         {if (n > 0) print sum / n}' $2`
@@ -231,12 +227,14 @@ general_pcm_parsing() {
         `awk '/'"$PCM_MEM_CONFIG_SEARCH"' Write Throughput/ {sum += $'"$THROUGHPUT_INDEX"'; n++} END \
         {if (n > 0) {print sum / n} else {print "Null"}}' $2`
 
+      echo "[OVERALL] DIMM Energy(J): " \
+        `awk '/LLCRDMISSLAT / {getline; getline; sum += $10; n++} END \
+        {if (n > 0) {print sum / n} else {print "Null"}}' $2`
+
+
     else
       echo "Overall:"
       echo `awk '/LLCRDMISSLAT / {getline; getline; sum += $11; n++} END \
-        { if (n > 0) {print sum / n;} else {print "Null"} }' $2`
-
-      echo `awk '/DIMM energy / {getline; getline; sum += $10; n++} END \
         { if (n > 0) {print sum / n;} else {print "Null"} }' $2`
 
       echo `awk '/'"$PCM_MEM_CONFIG_SEARCH"' Read Throughput/ {sum += $'"$THROUGHPUT_INDEX"'; n++} END \
@@ -244,7 +242,9 @@ general_pcm_parsing() {
 
       echo `awk '/'"$PCM_MEM_CONFIG_SEARCH"' Write Throughput/ {sum += $'"$THROUGHPUT_INDEX"'; n++} END \
         { if (n > 0) {print sum / n;} else {print "Null"} }' $2`
-        # ${MEM_CONFIG}_${TAIL_CONFIG}_*_perf.txt
+
+      echo `awk '/DIMM energy / {getline; getline; sum += $10; n++} END \
+        { if (n > 0) {print sum / n;} else {print "Null"} }' $2`
     fi
   fi
 }
