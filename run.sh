@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# Collect shell script arguments
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
   key="$1"
@@ -7,26 +8,27 @@ while [[ $# -gt 0 ]]; do
   case $key in
     -b|--benchmarks)
       BENCHMARKS="$2"
-      shift
-      shift
+      shift; shift
       ;;
     -m|--mem_configs)
       MEM_CONFIGS="$2"
-      shift
-      shift
+      shift; shift
       ;;
     -r|--runs)
       TOTAL_RUNS="$2"
-      shift
-      shift
+      shift; shift
       ;;
     -o|--output)
       OUTPUT_FILE="$2"
       shift; shift
       ;;
-    -l|--keep_logs)
-      KEEP_LOGS="$2"
-      shift
+    -d|--dram_node)
+      DRAM_NODE="$2"
+      shift; shift
+      ;;
+    -n|--pmem_node)
+      PMEM_NODE="$2"
+      shift; shift
       ;;
     -c|--context)
       CONTEXT="$2"
@@ -61,6 +63,15 @@ declare -a YCSB_CONFIGS=("load" "run")
 MEM_CONFIGS=$([ "$MEM_CONFIGS" == "all" -o -z "${MEM_CONFIGS+x}" -o "$MEM_CONFIGS" == "" ] \
   && echo "dram pmem both" || echo "$MEM_CONFIGS")
 MEM_CONFIGS=($MEM_CONFIGS)
+NUMA_NODES=`numactl -H | awk '/available:/ {if ($2 > 1) {print "True"} else {print "False"}}'`
+if [ $NUMA_NODES == "False" ]; then
+  MEM_CONFIGS="dram"
+fi
+
+DRAM_NODE=$([ -z "${DRAM_NODE+x}" -o "$DRAM_NODE" == "" ] \
+  && echo "0" || echo "$DRAM_NODE")
+PMEM_NODE=$([ -z "${PMEM_NODE+x}" -o "$PMEM_NODE" == "" ] \
+  && echo "3" || echo "$PMEM_NODE")
 
 REGEX_NUM='^[0-9]+$'
 TOTAL_RUNS=$([[ -v TOTAL_RUNS && $TOTAL_RUNS =~ $REGEX_NUM ]] && echo "$TOTAL_RUNS" || echo "1")
@@ -111,12 +122,12 @@ if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
           for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
             for TAIL_CONFIG in "${TAIL_CONFIGS[@]}"; do
               for RUN in $(eval echo {1..$TOTAL_RUNS}); do
-
                 echo "${TAIL_CONFIG} - ${MEM_CONFIG} - ${RUN}:"
                 echo "-------------------"
                 sudo pcm --external_program sudo pcm-memory --external_program \
                   sudo numactl --cpunodebind=0 \
-                  --membind=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || ([ "$MEM_CONFIG" == "pmem" ] && echo "3" || echo "0-3")) \
+                  --membind=$([ "$MEM_CONFIG" == "dram" ] && echo "$DRAM_NODE" || \
+                  ([ "$MEM_CONFIG" == "pmem" ] && echo "$PMEM_NODE" || echo "$DRAM_NODE,$PMEM_NODE")) \
                   ./run_${TAIL_CONFIG}.sh \
                   > ../../results/${BENCHMARK}/${TAIL_BENCHMARK}/${MEM_CONFIG}_${TAIL_CONFIG}_${RUN}.txt
                 if [ -f "lats.bin" ];
@@ -126,13 +137,12 @@ if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
                   rm lats.bin
                 fi
                 echo ""
-              done
-            done
-          done
-
+              done # End of run
+            done # End of tail config (integrated vs networked run)
+          done # End of mem config (dram, pmem, etc.)
           cd ..
           echo ""; echo ""
-        done
+        done # End of tailbench benchmarks
         ;;
 
 
@@ -151,15 +161,16 @@ if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
                 echo "-------------------"
                 sudo pcm --external_program sudo pcm-memory --external_program \
                   sudo numactl --cpunodebind=0 \
-                  --membind=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || ([ "$MEM_CONFIG" == "pmem" ] && echo "3" || echo "0-3")) \
+                  --membind=$([ "$MEM_CONFIG" == "dram" ] && echo "$DRAM_NODE" || \
+                  ([ "$MEM_CONFIG" == "pmem" ] && echo "$PMEM_NODE" || echo "$DRAM_NODE,$PMEM_NODE")) \
                   bin/ycsb ${YCSB_CONFIG} redis -s -P workloads/workload${YCSB_BENCHMARK} -p "redis.host=127.0.0.1" -P config.dat \
                   > ../results/${BENCHMARK}/${YCSB_BENCHMARK}/${MEM_CONFIG}_${YCSB_CONFIG}_${RUN}.txt
                   echo ""
-              done
-            done
-          done
+              done # End of YCSB config (run or load)
+            done # End of run
+          done # End of mem config (dram, pmem, etc.)
           echo ""; echo ""
-        done
+        done # End of YCSB benchmark (ex. workloada)
         ;;
 
 
@@ -171,21 +182,21 @@ if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
 
         for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
           for RUN in $(eval echo {1..$TOTAL_RUNS}); do
-
             echo "${MEM_CONFIG} - ${RUN}:"
             echo "-------------------"
             redis-cli FLUSHALL
             sudo pcm --external_program sudo pcm-memory --external_program \
               sudo numactl --cpunodebind=0 \
-              --membind=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || ([ "$MEM_CONFIG" == "pmem" ] && echo "3" || echo "0-3")) \
+              --membind=$([ "$MEM_CONFIG" == "dram" ] && echo "$DRAM_NODE" || \
+              ([ "$MEM_CONFIG" == "pmem" ] && echo "$PMEM_NODE" || echo "$DRAM_NODE,$PMEM_NODE")) \
               memtier_benchmark --pipeline=11 -c 20 -t 1 -d 500 --key-maximum=75000000 --key-pattern=G:G \
               --ratio=1:1 --distinct-client-seed --randomize --test-time=120 --run-count=1 \
               --key-stddev=5125000 --print-percentiles 50,75,90,95,99,99.9,99.99,100 \
               > ../results/${BENCHMARK}/${MEM_CONFIG}_${RUN}.txt
             echo ""
-          done
+          done # End of run
           echo ""; echo ""
-        done
+        done # End of mem config (dram, pmem, etc.)
         ;;
 
 
@@ -196,7 +207,7 @@ if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
     cd ..
     redis-cli FLUSHALL
     echo ""; echo ""; echo ""
-  done
+  done # End of benchmark suites
 fi
 
 
