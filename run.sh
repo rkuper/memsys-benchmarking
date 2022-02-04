@@ -71,7 +71,7 @@ fi
 DRAM_NODE=$([ -z "${DRAM_NODE+x}" -o "$DRAM_NODE" == "" ] \
   && echo "0" || echo "$DRAM_NODE")
 PMEM_NODE=$([ -z "${PMEM_NODE+x}" -o "$PMEM_NODE" == "" ] \
-  && echo "3" || echo "$PMEM_NODE")
+  && echo "2" || echo "$PMEM_NODE")
 
 REGEX_NUM='^[0-9]+$'
 TOTAL_RUNS=$([[ -v TOTAL_RUNS && $TOTAL_RUNS =~ $REGEX_NUM ]] && echo "$TOTAL_RUNS" || echo "1")
@@ -120,14 +120,14 @@ if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
           cd $TAIL_BENCHMARK
 
           for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
+            CPU_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || echo "1")
+            MEM_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || ([ "$MEM_CONFIG" == "pmem" ] && echo "3" || echo "1,3"))
             for TAIL_CONFIG in "${TAIL_CONFIGS[@]}"; do
               for RUN in $(eval echo {1..$TOTAL_RUNS}); do
                 echo "${TAIL_CONFIG} - ${MEM_CONFIG} - ${RUN}:"
                 echo "-------------------"
                 sudo pcm --external_program sudo pcm-memory --external_program \
-                  sudo numactl --cpunodebind=0 \
-                  --membind=$([ "$MEM_CONFIG" == "dram" ] && echo "$DRAM_NODE" || \
-                  ([ "$MEM_CONFIG" == "pmem" ] && echo "$PMEM_NODE" || echo "$DRAM_NODE,$PMEM_NODE")) \
+                  sudo numactl --cpunodebind=${CPU_NODE} --membind=${MEM_NODE} \
                   ./run_${TAIL_CONFIG}.sh \
                   > ../../results/${BENCHMARK}/${TAIL_BENCHMARK}/${MEM_CONFIG}_${TAIL_CONFIG}_${RUN}.txt
                 if [ -f "lats.bin" ];
@@ -154,19 +154,22 @@ if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
           echo ""
 
           for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
+
+            CPU_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || echo "1")
+            MEM_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || ([ "$MEM_CONFIG" == "pmem" ] && echo "3" || echo "1,3"))
             for RUN in $(eval echo {1..$TOTAL_RUNS}); do
-              redis-cli FLUSHALL
+              sudo numactl --cpunodebind=${CPU_NODE} --membind=${MEM_NODE} redis-server & sleep 4
               for YCSB_CONFIG in "${YCSB_CONFIGS[@]}"; do
                 echo "${YCSB_CONFIG} - ${MEM_CONFIG} - ${RUN}:"
                 echo "-------------------"
                 sudo pcm --external_program sudo pcm-memory --external_program \
-                  sudo numactl --cpunodebind=0 \
-                  --membind=$([ "$MEM_CONFIG" == "dram" ] && echo "$DRAM_NODE" || \
-                  ([ "$MEM_CONFIG" == "pmem" ] && echo "$PMEM_NODE" || echo "$DRAM_NODE,$PMEM_NODE")) \
+                  sudo numactl --cpunodebind=${CPU_NODE} --membind=${MEM_NODE} \
                   bin/ycsb ${YCSB_CONFIG} redis -s -P workloads/workload${YCSB_BENCHMARK} -p "redis.host=127.0.0.1" -P config.dat \
                   > ../results/${BENCHMARK}/${YCSB_BENCHMARK}/${MEM_CONFIG}_${YCSB_CONFIG}_${RUN}.txt
                   echo ""
               done # End of YCSB config (run or load)
+              redis-cli FLUSHALL
+              sudo pkill redis-server & sleep 4
             done # End of run
           done # End of mem config (dram, pmem, etc.)
           echo ""; echo ""
@@ -181,18 +184,20 @@ if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
         echo ""
 
         for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
+          CPU_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || echo "1")
+          MEM_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || ([ "$MEM_CONFIG" == "pmem" ] && echo "3" || echo "1,3"))
           for RUN in $(eval echo {1..$TOTAL_RUNS}); do
+            sudo numactl --cpunodebind=${CPU_NODE} --membind=${MEM_NODE} redis-server & sleep 4
             echo "${MEM_CONFIG} - ${RUN}:"
             echo "-------------------"
-            redis-cli FLUSHALL
             sudo pcm --external_program sudo pcm-memory --external_program \
-              sudo numactl --cpunodebind=0 \
-              --membind=$([ "$MEM_CONFIG" == "dram" ] && echo "$DRAM_NODE" || \
-              ([ "$MEM_CONFIG" == "pmem" ] && echo "$PMEM_NODE" || echo "$DRAM_NODE,$PMEM_NODE")) \
+              sudo numactl --cpunodebind=${CPU_NODE} --membind=${MEM_NODE} \
               memtier_benchmark --pipeline=11 -c 20 -t 1 -d 500 --key-maximum=75000000 --key-pattern=G:G \
               --ratio=1:1 --distinct-client-seed --randomize --test-time=120 --run-count=1 \
               --key-stddev=5125000 --print-percentiles 50,75,90,95,99,99.9,99.99,100 \
               > ../results/${BENCHMARK}/${MEM_CONFIG}_${RUN}.txt
+            redis-cli FLUSHALL
+            sudo pkill redis-server & sleep 4
             echo ""
           done # End of run
           echo ""; echo ""
@@ -205,7 +210,6 @@ if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
         ;;
     esac
     cd ..
-    redis-cli FLUSHALL
     echo ""; echo ""; echo ""
   done # End of benchmark suites
 fi
@@ -227,7 +231,7 @@ general_pcm_parsing() {
   if [ -f "$1" ]; then
     if [ "$CONTEXT" == "true" ]; then
       echo "[OVERALL] LLCRDMISSLAT(ns): " \
-        `awk '/LLCRDMISSLAT / {getline; getline; sum += $11; n++} END \
+        `awk '/LLCRDMISSLAT / {getline; getline; '"$4"' sum += $11; n++} END \
         {if (n > 0) {print sum / n} else {print "Null"}}' $2`
 
       echo "[OVERALL] ${PCM_MEM_CONFIG_SEARCH} Read Throughput(MB/s): "\
@@ -245,7 +249,7 @@ general_pcm_parsing() {
 
     else
       echo "Overall:"
-      echo `awk '/LLCRDMISSLAT / {getline; getline; sum += $11; n++} END \
+      echo `awk '/LLCRDMISSLAT / {getline; getline; '"$4"' sum += $11; n++} END \
         { if (n > 0) {print sum / n;} else {print "Null"} }' $2`
 
       echo `awk '/'"$PCM_MEM_CONFIG_SEARCH"' Read Throughput/ {sum += $'"$THROUGHPUT_INDEX"'; n++} END \
@@ -314,9 +318,10 @@ if [ "$PROCESS" == "true" ]; then
                   done
                 echo ""
                 done
+                SOCKET_PCM=$([ "$MEM_CONFIG" == "dram" ] && echo "" || echo "getline;")
                 SAMPLE_PCM_FILE=${MEM_CONFIG}_${TAIL_CONFIG}_1.txt
                 PCM_FILES=${MEM_CONFIG}_${TAIL_CONFIG}_*.txt
-                general_pcm_parsing "${SAMPLE_PCM_FILE}" "${PCM_FILES}" "${MEM_CONFIG}"
+                general_pcm_parsing "${SAMPLE_PCM_FILE}" "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}"
                 echo ""
               done
               echo ""; echo "";
@@ -361,10 +366,10 @@ if [ "$PROCESS" == "true" ]; then
                   done
                   echo ""
                 done
-
+                SOCKET_PCM=$([ "$MEM_CONFIG" == "dram" ] && echo "" || echo "getline;")
                 SAMPLE_PCM_FILE=${MEM_CONFIG}_${YCSB_CONFIG}_1.txt
                 PCM_FILES=${MEM_CONFIG}_${YCSB_CONFIG}_*.txt
-                general_pcm_parsing "${SAMPLE_PCM_FILE}" "${PCM_FILES}" "${MEM_CONFIG}"
+                general_pcm_parsing "${SAMPLE_PCM_FILE}" "${PCM_FILES}" "${MEM_CONFIG}"  "${SOCKET_PCM}"
                 echo ""
               done
               echo ""; echo "";
@@ -395,9 +400,10 @@ if [ "$PROCESS" == "true" ]; then
               echo ""
 
             done
+            SOCKET_PCM=$([ "$MEM_CONFIG" == "dram" ] && echo "" || echo "getline;")
             SAMPLE_PCM_FILE=${MEM_CONFIG}_1.txt
             PCM_FILES=${MEM_CONFIG}_*.txt
-            general_pcm_parsing "${SAMPLE_PCM_FILE}" "${PCM_FILES}" "${MEM_CONFIG}"
+            general_pcm_parsing "${SAMPLE_PCM_FILE}" "${PCM_FILES}" "${MEM_CONFIG}"  "${SOCKET_PCM}"
             echo ""; echo ""; echo ""
           done
           ;;
