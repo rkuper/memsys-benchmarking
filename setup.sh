@@ -61,7 +61,7 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
         mkdir results/${BENCHMARK}/a results/${BENCHMARK}/b results/${BENCHMARK}/c results/${BENCHMARK}/d results/${BENCHMARK}/f
 
         # Dependencies
-        sudo apt install -y redis memcached libmemcached-dev
+        sudo apt install -y redis memcached libmemcached-dev maven
         ;;
 
 
