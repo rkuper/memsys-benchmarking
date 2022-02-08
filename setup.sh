@@ -23,7 +23,7 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
         sudo apt install -y zlib1g-dev libopencv-dev libboost-dev swift libicu-dev libboost-all-dev libbz2-dev \
                             liblzma-dev graphviz imagemagick libgoogle-perftools-dev ant uuid-dev \
                             libjemalloc-dev libnuma-dev libdb-dev libdb++-dev libaio-dev libssl-dev swig bison \
-                            libreadline-dev libgtop2-dev libncurses-dev libpulse-dev libxapian-dev
+                            libreadline-dev libgtop2-dev libncurses-dev libpulse-dev
         sudo pip3 install numpy pandas matplotlib scipy numa
 
         # Build each individual test
