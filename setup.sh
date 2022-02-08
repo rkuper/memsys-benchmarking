@@ -4,7 +4,7 @@
 declare -a BENCHMARKS=("tailbench" "ycsb" "memtier")
 declare -a TAIL_BENCHMARKS=("harness" "img-dnn" "masstree" "moses" "silo" "specjbb" "sphinx" "xapian")
 
-sudo apt install -y htop numatop ipmctl ndctl openjdk-8-jdk numactl
+sudo apt install -y htop openjdk-8-jdk numatop numactl ipmctl ndctl daxctl
 mkdir results
 
 for BENCHMARK in "${BENCHMARKS[@]}"; do
