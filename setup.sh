@@ -5,7 +5,7 @@ declare -a BENCHMARKS=("tailbench" "ycsb" "memtier")
 declare -a TAIL_BENCHMARKS=("harness" "img-dnn" "masstree" "moses" "silo" "specjbb" "sphinx" "xapian")
 
 sudo apt install -y htop openjdk-8-jdk numatop numactl ipmctl ndctl daxctl
-mkdir results
+mkdir results tools
 
 for BENCHMARK in "${BENCHMARKS[@]}"; do
   if [ ! -d "${BENCHMARK}" ]; then
@@ -94,4 +94,11 @@ if [ "`command -v pcm`" == "" ]; then
   echo 'deb http://download.opensuse.org/repositories/home:/opcm/xUbuntu_19.10/ /' | sudo tee /etc/apt/sources.list.d/home:opcm.list
   curl -fsSL https://download.opensuse.org/repositories/home:opcm/xUbuntu_19.10/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/home_opcm.gpg > /dev/null
   sudo apt update; sudo apt install pcm
+fi
+
+if [ ! -d "tools/redis" ]; then
+  git clone https://github.com/redis/redis.git
+  cd tools/redis
+  make
+  cd ..
 fi

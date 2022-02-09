@@ -49,6 +49,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+MAIN_DIR=`pwd`
+REDIS_DIR=${MAIN_DIR}/tools/redis/src
+
 BENCHMARKS=$([ "$BENCHMARKS" == "all" -o -z "${BENCHMARKS+x}" -o "$BENCHMARKS" == "" ] \
   && echo "tailbench ycsb memtier" || echo "$BENCHMARKS")
 BENCHMARKS=($BENCHMARKS)
@@ -158,7 +161,7 @@ if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
             CPU_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || echo "1")
             MEM_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || ([ "$MEM_CONFIG" == "pmem" ] && echo "3" || echo "1,3"))
             for RUN in $(eval echo {1..$TOTAL_RUNS}); do
-              sudo numactl --cpunodebind=${CPU_NODE} --membind=${MEM_NODE} redis-server & sleep 4
+              sudo numactl --cpunodebind=${CPU_NODE} --membind=${MEM_NODE} ${REDIS_DIR}/redis-server & sleep 4
               for YCSB_CONFIG in "${YCSB_CONFIGS[@]}"; do
                 echo "${YCSB_CONFIG} - ${MEM_CONFIG} - ${RUN}:"
                 echo "-------------------"
@@ -168,7 +171,7 @@ if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
                   > ../results/${BENCHMARK}/${YCSB_BENCHMARK}/${MEM_CONFIG}_${YCSB_CONFIG}_${RUN}.txt
                   echo ""
               done # End of YCSB config (run or load)
-              redis-cli FLUSHALL
+              ${REDIS_DIR}/redis-cli FLUSHALL
               sudo pkill redis-server & sleep 4
             done # End of run
           done # End of mem config (dram, pmem, etc.)
@@ -187,7 +190,7 @@ if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
           CPU_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || echo "1")
           MEM_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || ([ "$MEM_CONFIG" == "pmem" ] && echo "3" || echo "1,3"))
           for RUN in $(eval echo {1..$TOTAL_RUNS}); do
-            sudo numactl --cpunodebind=${CPU_NODE} --membind=${MEM_NODE} redis-server & sleep 4
+            sudo numactl --cpunodebind=${CPU_NODE} --membind=${MEM_NODE} ${REDIS_DIR}/redis-server & sleep 4
             echo "${MEM_CONFIG} - ${RUN}:"
             echo "-------------------"
             sudo pcm --external_program sudo pcm-memory --external_program \
@@ -196,7 +199,7 @@ if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
               --ratio=1:1 --distinct-client-seed --randomize --test-time=120 --run-count=1 \
               --key-stddev=5125000 --print-percentiles 50,75,90,95,99,99.9,99.99,100 \
               > ../results/${BENCHMARK}/${MEM_CONFIG}_${RUN}.txt
-            redis-cli FLUSHALL
+            ${REDIS_DIR}/redis-cli FLUSHALL
             sudo pkill redis-server & sleep 4
             echo ""
           done # End of run

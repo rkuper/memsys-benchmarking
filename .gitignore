@@ -1,4 +1,5 @@
-results
+results/*
 tailbench
 ycsb
 memtier
+tools/*
