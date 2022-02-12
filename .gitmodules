@@ -1,0 +1,9 @@
+[submodule "tailbench"]
+	path = tailbench
+	url = https://github.com/rkuper/tailbench.git
+[submodule "YCSB"]
+	path = ycsb
+	url = https://github.com/rkuper/YCSB.git
+[submodule "memtier"]
+	path = memtier
+	url = https://github.com/rkuper/memtier_benchmark.git

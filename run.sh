@@ -26,6 +26,10 @@ while [[ $# -gt 0 ]]; do
       DRAM_NODE="$2"
       shift; shift
       ;;
+    -s|--small_dram_node)
+      SMALL_DRAM_NODE="$2"
+      shift; shift
+      ;;
     -n|--pmem_node)
       PMEM_NODE="$2"
       shift; shift
@@ -63,18 +67,21 @@ declare -a MEMTIER_BENCHMARKS=("general")
 declare -a TAIL_CONFIGS=("integrated" "networked")
 declare -a YCSB_CONFIGS=("load" "run")
 
-MEM_CONFIGS=$([ "$MEM_CONFIGS" == "all" -o -z "${MEM_CONFIGS+x}" -o "$MEM_CONFIGS" == "" ] \
-  && echo "dram pmem both" || echo "$MEM_CONFIGS")
-MEM_CONFIGS=($MEM_CONFIGS)
 NUMA_NODES=`numactl -H | awk '/available:/ {if ($2 > 1) {print "True"} else {print "False"}}'`
 if [ $NUMA_NODES == "False" ]; then
   MEM_CONFIGS="dram"
+else
+  MEM_CONFIGS=$([ "$MEM_CONFIGS" == "all" -o -z "${MEM_CONFIGS+x}" -o "$MEM_CONFIGS" == "" ] \
+    && echo "dram pmem both" || echo "$MEM_CONFIGS")
+  MEM_CONFIGS=($MEM_CONFIGS)
 fi
 
 DRAM_NODE=$([ -z "${DRAM_NODE+x}" -o "$DRAM_NODE" == "" ] \
   && echo "0" || echo "$DRAM_NODE")
+SMALL_DRAM_NODE=$([ -z "${SMALL_DRAM_NODE+x}" -o "$SMALL_DRAM_NODE" == "" ] \
+  && echo "1" || echo "$SMALL_DRAM_NODE")
 PMEM_NODE=$([ -z "${PMEM_NODE+x}" -o "$PMEM_NODE" == "" ] \
-  && echo "2" || echo "$PMEM_NODE")
+  && echo "3" || echo "$PMEM_NODE")
 
 REGEX_NUM='^[0-9]+$'
 TOTAL_RUNS=$([[ -v TOTAL_RUNS && $TOTAL_RUNS =~ $REGEX_NUM ]] && echo "$TOTAL_RUNS" || echo "1")
@@ -101,6 +108,105 @@ declare -a MEMTIER_METRICS=("6" "7" "8" "9" "10" "11" "12" "13" "6")
 ####################################
 #            Benchmarks            #
 ####################################
+
+# $1 = number of runs
+run_tailbench() {
+  cd tailbench
+  for TAIL_BENCHMARK in "${TAIL_BENCHMARKS[@]}"; do
+    echo "=========================="
+    echo "=        ${TAIL_BENCHMARK}         ="
+    echo "=========================="
+    echo ""
+
+    cd $TAIL_BENCHMARK
+
+    for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
+      CPU_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "${DRAM_NODE}" || echo "${SMALL_DRAM_NODE}")
+      MEM_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "${DRAM_NODE}" || \
+        ([ "$MEM_CONFIG" == "pmem" ] && echo "${PMEM_NODE}" || echo "${SMALL_DRAM_NODE},${PMEM_NODE}"))
+      for TAIL_CONFIG in "${TAIL_CONFIGS[@]}"; do
+        for RUN in $(eval echo {1..$1}); do
+          echo "${TAIL_CONFIG} - ${MEM_CONFIG} - ${RUN}:"
+          echo "-------------------"
+          sudo pcm --external_program sudo pcm-memory --external_program \
+            sudo numactl --cpunodebind=${CPU_NODE} --membind=${MEM_NODE} \
+            ./run_${TAIL_CONFIG}.sh \
+            > ../../results/tailbench/${TAIL_BENCHMARK}/${MEM_CONFIG}_${TAIL_CONFIG}_${RUN}.txt
+          if [ -f "lats.bin" ];
+          then
+            python3 ../utilities/parselats.py lats.bin \
+              > ../../results/tailbench/${TAIL_BENCHMARK}/lats_${MEM_CONFIG}_${TAIL_CONFIG}_${RUN}.txt
+            rm lats.bin
+          fi
+          echo ""
+        done # End of run
+      done # End of tail config (integrated vs networked run)
+    done # End of mem config (dram, pmem, etc.)
+    cd ..
+    echo ""; echo ""
+  done # End of tailbench benchmarks
+  cd ..
+}
+
+# $1 = number of runs
+run_ycsb() {
+  cd ycsb
+  for YCSB_BENCHMARK in "${YCSB_BENCHMARKS[@]}"; do
+    echo "=============================="
+    echo "=        Workload-${YCSB_BENCHMARK}         ="
+    echo "=============================="
+    echo ""
+
+    for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
+
+      CPU_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "${DRAM_NODE}" || echo "${SMALL_DRAM_NODE}")
+      MEM_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "${DRAM_NODE}" || \
+        ([ "$MEM_CONFIG" == "pmem" ] && echo "${PMEM_NODE}" || echo "${SMALL_DRAM_NODE},${PMEM_NODE}"))
+      for RUN in $(eval echo {1..$TOTAL_RUNS}); do
+        sudo numactl --cpunodebind=${CPU_NODE} --membind=${MEM_NODE} ${REDIS_DIR}/redis-server & sleep 4
+        for YCSB_CONFIG in "${YCSB_CONFIGS[@]}"; do
+          echo "${YCSB_CONFIG} - ${MEM_CONFIG} - ${RUN}:"
+          echo "-------------------"
+          sudo ./run_ycsb.sh ${CPU_NODE} ${MEM_NODE} ${YCSB_BENCHMARK} ${YCSB_CONFIG}
+          mv ycsb-results.txt ../results/ycsb/${YCSB_BENCHMARK}/${MEM_CONFIG}_${YCSB_CONFIG}_${RUN}.txt
+          echo ""
+        done # End of YCSB config (run or load)
+        ${REDIS_DIR}/redis-cli FLUSHALL
+        sudo pkill redis-server & sleep 4
+      done # End of run
+    done # End of mem config (dram, pmem, etc.)
+    echo ""; echo ""
+  done # End of YCSB benchmark (ex. workloada)
+  cd ..
+}
+
+# $1 = number of runs
+run_memtier() {
+  cd memtier
+  echo "=============================="
+  echo "=      General Memtier       ="
+  echo "=============================="
+  echo ""
+
+  for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
+    CPU_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "${DRAM_NODE}" || echo "${SMALL_DRAM_NODE}")
+    MEM_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "${DRAM_NODE}" || \
+      ([ "$MEM_CONFIG" == "pmem" ] && echo "${PMEM_NODE}" || echo "${SMALL_DRAM_NODE},${PMEM_NODE}"))
+    for RUN in $(eval echo {1..$TOTAL_RUNS}); do
+      sudo numactl --cpunodebind=${CPU_NODE} --membind=${MEM_NODE} ${REDIS_DIR}/redis-server & sleep 4
+      echo "${MEM_CONFIG} - ${RUN}:"
+      echo "-------------------"
+      sudo ./run_memtier.sh ${CPU_NODE} ${MEM_NODE}
+      mv memtier-results.txt ../results/memtier/${MEM_CONFIG}_${RUN}.txt
+      ${REDIS_DIR}/redis-cli FLUSHALL
+      sudo pkill redis-server & sleep 4
+      echo ""
+    done # End of run
+    echo ""; echo ""
+  done # End of mem config (dram, pmem, etc.)
+  cd ..
+}
+
 if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
   for BENCHMARK in "${BENCHMARKS[@]}"; do
     echo "##########################"
@@ -110,110 +216,21 @@ if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
     echo "##########################"
     echo ""
 
-    cd $BENCHMARK
-
     case $BENCHMARK in
       tailbench)
-        for TAIL_BENCHMARK in "${TAIL_BENCHMARKS[@]}"; do
-          echo "=========================="
-          echo "=        ${TAIL_BENCHMARK}         ="
-          echo "=========================="
-          echo ""
-
-          cd $TAIL_BENCHMARK
-
-          for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
-            CPU_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || echo "1")
-            MEM_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || ([ "$MEM_CONFIG" == "pmem" ] && echo "3" || echo "1,3"))
-            for TAIL_CONFIG in "${TAIL_CONFIGS[@]}"; do
-              for RUN in $(eval echo {1..$TOTAL_RUNS}); do
-                echo "${TAIL_CONFIG} - ${MEM_CONFIG} - ${RUN}:"
-                echo "-------------------"
-                sudo pcm --external_program sudo pcm-memory --external_program \
-                  sudo numactl --cpunodebind=${CPU_NODE} --membind=${MEM_NODE} \
-                  ./run_${TAIL_CONFIG}.sh \
-                  > ../../results/${BENCHMARK}/${TAIL_BENCHMARK}/${MEM_CONFIG}_${TAIL_CONFIG}_${RUN}.txt
-                if [ -f "lats.bin" ];
-                then
-                  python3 ../utilities/parselats.py lats.bin \
-                    > ../../results/${BENCHMARK}/${TAIL_BENCHMARK}/lats_${MEM_CONFIG}_${TAIL_CONFIG}_${RUN}.txt
-                  rm lats.bin
-                fi
-                echo ""
-              done # End of run
-            done # End of tail config (integrated vs networked run)
-          done # End of mem config (dram, pmem, etc.)
-          cd ..
-          echo ""; echo ""
-        done # End of tailbench benchmarks
+        run_tailbench ${TOTAL_RUNS}
         ;;
-
-
       ycsb)
-        for YCSB_BENCHMARK in "${YCSB_BENCHMARKS[@]}"; do
-          echo "=============================="
-          echo "=        Workload-${YCSB_BENCHMARK}         ="
-          echo "=============================="
-          echo ""
-
-          for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
-
-            CPU_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || echo "1")
-            MEM_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || ([ "$MEM_CONFIG" == "pmem" ] && echo "3" || echo "1,3"))
-            for RUN in $(eval echo {1..$TOTAL_RUNS}); do
-              sudo numactl --cpunodebind=${CPU_NODE} --membind=${MEM_NODE} ${REDIS_DIR}/redis-server & sleep 4
-              for YCSB_CONFIG in "${YCSB_CONFIGS[@]}"; do
-                echo "${YCSB_CONFIG} - ${MEM_CONFIG} - ${RUN}:"
-                echo "-------------------"
-                sudo pcm --external_program sudo pcm-memory --external_program \
-                  sudo numactl --cpunodebind=${CPU_NODE} --membind=${MEM_NODE} \
-                  bin/ycsb ${YCSB_CONFIG} redis -s -P workloads/workload${YCSB_BENCHMARK} -p "redis.host=127.0.0.1" -P config.dat \
-                  > ../results/${BENCHMARK}/${YCSB_BENCHMARK}/${MEM_CONFIG}_${YCSB_CONFIG}_${RUN}.txt
-                  echo ""
-              done # End of YCSB config (run or load)
-              ${REDIS_DIR}/redis-cli FLUSHALL
-              sudo pkill redis-server & sleep 4
-            done # End of run
-          done # End of mem config (dram, pmem, etc.)
-          echo ""; echo ""
-        done # End of YCSB benchmark (ex. workloada)
+        run_ycsb ${TOTAL_RUNS}
         ;;
-
-
       memtier)
-        echo "=============================="
-        echo "=      General Memtier       ="
-        echo "=============================="
-        echo ""
-
-        for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
-          CPU_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || echo "1")
-          MEM_NODE=$([ "$MEM_CONFIG" == "dram" ] && echo "0" || ([ "$MEM_CONFIG" == "pmem" ] && echo "3" || echo "1,3"))
-          for RUN in $(eval echo {1..$TOTAL_RUNS}); do
-            sudo numactl --cpunodebind=${CPU_NODE} --membind=${MEM_NODE} ${REDIS_DIR}/redis-server & sleep 4
-            echo "${MEM_CONFIG} - ${RUN}:"
-            echo "-------------------"
-            sudo pcm --external_program sudo pcm-memory --external_program \
-              sudo numactl --cpunodebind=${CPU_NODE} --membind=${MEM_NODE} \
-              memtier_benchmark --pipeline=11 -c 20 -t 1 -d 500 --key-maximum=75000000 --key-pattern=G:G \
-              --ratio=1:1 --distinct-client-seed --randomize --test-time=120 --run-count=1 \
-              --key-stddev=5125000 --print-percentiles 50,75,90,95,99,99.9,99.99,100 \
-              > ../results/${BENCHMARK}/${MEM_CONFIG}_${RUN}.txt
-            ${REDIS_DIR}/redis-cli FLUSHALL
-            sudo pkill redis-server & sleep 4
-            echo ""
-          done # End of run
-          echo ""; echo ""
-        done # End of mem config (dram, pmem, etc.)
+        run_memtier ${TOTAL_RUNS}
         ;;
-
-
       *)
         echo "Unrecognized Benchmark"
         ;;
     esac
-    cd ..
-    echo ""; echo ""; echo ""
+    echo ""
   done # End of benchmark suites
 fi
 
@@ -418,10 +435,6 @@ if [ "$PROCESS" == "true" ]; then
       esac
       cd ..
     done
-
-    # if [ "$KEEP_LOGS" == "false" ]; then
-    #   rm *_lats_*.txt
-    # fi
     cd ..
   } > ${OUTPUT_PATH}
 fi

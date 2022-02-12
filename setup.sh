@@ -12,8 +12,7 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
     mkdir results/${BENCHMARK}
     case $BENCHMARK in
       tailbench)
-        # Clone and make base files
-        git clone https://github.com/rkuper/tailbench.git ${BENCHMARK}; cd ${BENCHMARK}
+        cd ${BENCHMARK}
         mkdir scratch
 
         # General tools
@@ -57,7 +56,6 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
 
       ycsb)
         # Clone
-        git clone https://github.com/rkuper/YCSB.git ${BENCHMARK}
         mkdir results/${BENCHMARK}/a results/${BENCHMARK}/b results/${BENCHMARK}/c results/${BENCHMARK}/d results/${BENCHMARK}/f
 
         # Dependencies
@@ -67,8 +65,7 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
 
 
       memtier)
-        # Clone
-        git clone https://github.com/RedisLabs/memtier_benchmark.git ${BENCHMARK}; cd ${BENCHMARK}
+        cd ${BENCHMARK}
 
         # Dependencies
         sudo apt install -y build-essential autoconf automake libpcre3-dev libevent-dev pkg-config zlib1g-dev
