@@ -94,7 +94,7 @@ if [ "`command -v pcm`" == "" ]; then
 fi
 
 if [ ! -d "tools/redis" ]; then
-  git clone https://github.com/redis/redis.git
+  git clone https://github.com/redis/redis.git tools/redis
   cd tools/redis
   make
   cd ..
