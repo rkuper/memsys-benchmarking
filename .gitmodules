@@ -7,3 +7,6 @@
 [submodule "memtier"]
 	path = memtier
 	url = https://github.com/rkuper/memtier_benchmark.git
+[submodule "pmbench"]
+	path = pmbench
+	url = https://github.com/rkuper/pmbench.git

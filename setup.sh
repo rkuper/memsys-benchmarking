@@ -1,7 +1,7 @@
 #!/bin/bash
 # Main setup script for all benchmarks
 
-declare -a BENCHMARKS=("tailbench" "ycsb" "memtier")
+declare -a BENCHMARKS=("tailbench" "ycsb" "memtier" "pmbench")
 declare -a TAIL_BENCHMARKS=("harness" "img-dnn" "masstree" "moses" "silo" "specjbb" "sphinx" "xapian")
 
 sudo apt install -y htop openjdk-8-jdk numatop numactl ipmctl ndctl daxctl
@@ -55,7 +55,7 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
 
 
       ycsb)
-        # Clone
+        # extra result directories
         mkdir results/${BENCHMARK}/a results/${BENCHMARK}/b results/${BENCHMARK}/c results/${BENCHMARK}/d results/${BENCHMARK}/f
 
         # Dependencies
@@ -73,6 +73,19 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
         # Build
         autoreconf -ivf; ./configure
         make; sudo make install
+        cd ..
+        ;;
+
+
+
+      pmbench)
+        cd ${BENCHMARK}
+
+        # Dependencies
+        sudo apt install -y libxml2-dev
+
+        # Build
+        make
         cd ..
         ;;
 
@@ -94,6 +107,7 @@ if [ "`command -v pcm`" == "" ]; then
 fi
 
 if [ ! -d "tools/redis" ]; then
+  sudo apt install tcl
   git clone https://github.com/redis/redis.git tools/redis
   cd tools/redis
   make
