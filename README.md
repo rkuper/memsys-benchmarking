@@ -14,6 +14,7 @@
   - d - Read latest workload
   - f - Read-modify-write
 - Memtier
+- PMBench
 
 
 ## Setup
@@ -22,13 +23,13 @@ Run the setup script to auto-install dependencies and setup benchmarks:
 
 ## Running a Test
 Options when running:
-- -r - number of runs per test to average
-- -b - benchmark suites to run: 'all' - default, 'tailbench', 'ycsb', or 'memtier'
-- -d - DRAM NUMA node: 0 - default
-- -n - PMEM NUMA node: 3 - default
-- -m - Memory configurations for where benchmarks exclusively allocate memory to: 'all' - default if more than 1 NUMA node, 'dram' - default if 1 NUMA node, 'pmem', 'both')
+- -s - number of samples (runs) per test to average
+- -b - benchmark suites to run: 'all' - default, 'tailbench', 'ycsb', 'memtier', or 'pmbench'
+- -l - Local NUMA node: 0 - default
+- -r - Remote NUMA node: 1 - default
+- -m - Memory configurations for where benchmarks exclusively allocate memory to: 'all' - default if more than 1 NUMA node, 'local' - default if 1 NUMA node, 'remote', 'both')
 - -e - Execute the benchmarks and place log files in memsys-benchmarking/results/...
 - -p - Process the log files in memsys-benchmarking/results/...
 
-Example: run five times per benchmark (averaging out results), execute only the tailbench and ycsb benchmarks, dram numa node is 0, pmem nodes are 2 and 3, run only pmem and dram memory configurations, and process the resulting logs:
-`$ ./run.sh -r 5 -b "tailbench ycsb" -d 0 -n "2,3" -m "dram pmem" -e -p`
+Example: sample five times per benchmark (averaging out results), execute only the tailbench and ycsb benchmarks, local numa node is 0, remote node is 1, run only local and remote memory configurations, and process the resulting logs:
+`$ ./run.sh -s 5 -b "tailbench ycsb" -l 0 -r "1" -m "local remote" -e -p`
