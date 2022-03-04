@@ -56,7 +56,7 @@ BENCHMARKS=$([ "$BENCHMARKS" == "all" -o -z "${BENCHMARKS+x}" -o "$BENCHMARKS" =
   && echo "tailbench ycsb memtier pmbench" || echo "$BENCHMARKS")
 BENCHMARKS=($BENCHMARKS)
 
-declare -a TAIL_BENCHMARKS=("img-dnn" "masstree" "moses" "silo" "specjbb" "sphinx" "xapian")
+declare -a TAIL_BENCHMARKS=("img-dnn" "masstree" "moses" "silo" "specjbb" "sphinx")
 declare -a YCSB_BENCHMARKS=("a" "b" "c" "f" "d")
 
 declare -a TAIL_CONFIGS=("integrated" "networked")
@@ -74,7 +74,7 @@ fi
 LOCAL_NODE=$([ -z "${LOCAL_NODE+x}" -o "$LOCAL_NODE" == "" ] \
   && echo "0" || echo "$LOCAL_NODE")
 REMOTE_NODE=$([ -z "${REMOTE_NODE+x}" -o "$REMOTE_NODE" == "" ] \
-  && echo "3" || echo "$REMOTE_NODE")
+  && echo "1" || echo "$REMOTE_NODE")
 
 REGEX_NUM='^[0-9]+$'
 TOTAL_SAMPLES=$([[ -v TOTAL_SAMPLES && $TOTAL_SAMPLES =~ $REGEX_NUM ]] && echo "$TOTAL_SAMPLES" || echo "1")
@@ -123,8 +123,7 @@ run_tailbench() {
           echo "-------------------"
           sudo pcm --external_program sudo pcm-memory --external_program \
             sudo numactl --cpunodebind=${CPU_NODE} --membind=${MEM_NODE} \
-            ./run_${TAIL_CONFIG}.sh \
-            > ../../results/tailbench/${TAIL_BENCHMARK}/${MEM_CONFIG}_${TAIL_CONFIG}_${SAMPLE}.txt
+            ./run_${TAIL_CONFIG}.sh > ../../results/tailbench/${TAIL_BENCHMARK}/${MEM_CONFIG}_${TAIL_CONFIG}_${SAMPLE}.txt
           if [ -f "lats.bin" ];
           then
             python3 ../utilities/parselats.py lats.bin \
@@ -412,7 +411,7 @@ if [ "$PROCESS" == "true" ]; then
                 SOCKET_PCM=$([ "$MEM_CONFIG" == "local" ] && echo "" || echo "getline;")
                 SAMPLE_PCM_FILE=${MEM_CONFIG}_${YCSB_CONFIG}_1.txt
                 PCM_FILES=${MEM_CONFIG}_${YCSB_CONFIG}_*.txt
-                general_pcm_parsing "${SAMPLE_PCM_FILE}" "${PCM_FILES}" "${MEM_CONFIG}"  "${SOCKET_PCM}"
+                general_pcm_parsing "${SAMPLE_PCM_FILE}" "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}"
                 echo ""
               done
               echo ""; echo "";
@@ -446,25 +445,28 @@ if [ "$PROCESS" == "true" ]; then
             SOCKET_PCM=$([ "$MEM_CONFIG" == "local" ] && echo "" || echo "getline;")
             SAMPLE_PCM_FILE=${MEM_CONFIG}_1.txt
             PCM_FILES=${MEM_CONFIG}_*.txt
-            general_pcm_parsing "${SAMPLE_PCM_FILE}" "${PCM_FILES}" "${MEM_CONFIG}"  "${SOCKET_PCM}"
+            general_pcm_parsing "${SAMPLE_PCM_FILE}" "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}"
             echo ""; echo ""; echo ""
           done
           ;;
 
-        memtier)
+        pmbench)
           echo "=========================="
           echo "=    GENERAL PMBENCH     ="
           echo "=========================="
           echo ""
 
           for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
+            echo "$MEM_CONFIG:"
+            echo "--------------"
             SOCKET_PCM=$([ "$MEM_CONFIG" == "local" ] && echo "" || echo "getline;")
             SAMPLE_PCM_FILE=${MEM_CONFIG}_1.txt
             PCM_FILES=${MEM_CONFIG}_*.txt
-            general_pcm_parsing "${SAMPLE_PCM_FILE}" "${PCM_FILES}" "${MEM_CONFIG}"  "${SOCKET_PCM}"
+            general_pcm_parsing "${SAMPLE_PCM_FILE}" "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}"
             echo ""; echo ""; echo ""
           done
           ;;
+
 
 
         *)
