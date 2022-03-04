@@ -360,6 +360,7 @@ if [ "$PROCESS" == "true" ]; then
                   done
                 echo ""
                 done
+
                 SOCKET_PCM=$([ "$MEM_CONFIG" == "local" ] && echo "" || echo "getline;")
                 SAMPLE_PCM_FILE=${MEM_CONFIG}_${TAIL_CONFIG}_1.txt
                 PCM_FILES=${MEM_CONFIG}_${TAIL_CONFIG}_*.txt
@@ -408,6 +409,7 @@ if [ "$PROCESS" == "true" ]; then
                   done
                   echo ""
                 done
+
                 SOCKET_PCM=$([ "$MEM_CONFIG" == "local" ] && echo "" || echo "getline;")
                 SAMPLE_PCM_FILE=${MEM_CONFIG}_${YCSB_CONFIG}_1.txt
                 PCM_FILES=${MEM_CONFIG}_${YCSB_CONFIG}_*.txt
@@ -440,8 +442,8 @@ if [ "$PROCESS" == "true" ]; then
                 fi
               done
               echo ""
-
             done
+
             SOCKET_PCM=$([ "$MEM_CONFIG" == "local" ] && echo "" || echo "getline;")
             SAMPLE_PCM_FILE=${MEM_CONFIG}_1.txt
             PCM_FILES=${MEM_CONFIG}_*.txt
@@ -459,6 +461,25 @@ if [ "$PROCESS" == "true" ]; then
           for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
             echo "$MEM_CONFIG:"
             echo "--------------"
+
+						# Histogram of read and write page latencies
+            declare -a IO_MODES=("Read" "Write")
+            for IO_MODE in "${IO_MODES[@]}"; do
+              echo "$IO_MODE:"
+              GETLINES=" getline;"
+              for FACTOR in $(eval echo {1..13}); do
+                echo `awk '/'"$IO_MODE"':/ {'"$GETLINES"' sum += $3; n++} END \
+                  { if (n > 0) {print sum / n;} else {print "Null"} }' ${MEM_CONFIG}_*.txt`
+	              GETLINES="$GETLINES getline;"
+              done
+              echo ""
+            done
+
+            echo "Average:"
+            echo `awk '/Net average page latency/ {sum += $7; n++} END \
+              { if (n > 0) {print sum / n;} else {print "Null"} }' ${MEM_CONFIG}_*.txt`
+            echo ""
+
             SOCKET_PCM=$([ "$MEM_CONFIG" == "local" ] && echo "" || echo "getline;")
             SAMPLE_PCM_FILE=${MEM_CONFIG}_1.txt
             PCM_FILES=${MEM_CONFIG}_*.txt
@@ -466,8 +487,6 @@ if [ "$PROCESS" == "true" ]; then
             echo ""; echo ""; echo ""
           done
           ;;
-
-
 
         *)
           echo "Unrecognized Benchmrk"
