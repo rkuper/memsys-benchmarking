@@ -277,7 +277,7 @@ general_pcm_parsing() {
   THROUGHPUT_WRITE_INDEX=$([ "$3" == "both" ] && echo "5" || echo "7")
 
   if [ "$CONTEXT" != "true" ]; then echo "Overall:"; fi
-  if [ -f "$1" ]; then
+  if ls $1 1> /dev/null 2>&1; then
     if [ "$CONTEXT" == "true" ]; then echo -n "[OVERALL] LLCRDMISSLAT(ns): "; fi
     echo `awk '/LLCRDMISSLAT / {getline; getline; '"$4"' sum += $9; n++} END \
       { if (n > 0) {print sum / n;} else {print "Null"} }' $2`
