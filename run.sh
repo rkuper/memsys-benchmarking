@@ -266,43 +266,42 @@ fi
 ####################################
 
 # General helper for parsing pcm data
-# $1 = Sample log file for checking existence of logs
-# $2 = Wildcard log files for averaging results across runs
-# $3 = MEM_CONFIG
-# $4 = getline added for getting correct data
+# $1 = Wildcard log files for averaging results across runs
+# $2 = MEM_CONFIG
+# $3 = getline added for getting correct data
 general_pcm_parsing() {
-  PCM_MEM_CONFIG_SEARCH=$([ "$3" == "local" ] && echo "NODE 0 Mem" || \
-           ([ "$3" == "remote" ] && echo "NODE 0 Mem" || echo "System"))
-  THROUGHPUT_READ_INDEX=$([ "$3" == "both" ] && echo "5" || echo "8")
-  THROUGHPUT_WRITE_INDEX=$([ "$3" == "both" ] && echo "5" || echo "7")
+  PCM_MEM_CONFIG_SEARCH=$([ "$2" == "local" ] && echo "NODE 0 Mem" || \
+           ([ "$2" == "remote" ] && echo "NODE 0 Mem" || echo "System"))
+  THROUGHPUT_READ_INDEX=$([ "$2" == "both" ] && echo "5" || echo "8")
+  THROUGHPUT_WRITE_INDEX=$([ "$2" == "both" ] && echo "5" || echo "7")
 
   if [ "$CONTEXT" != "true" ]; then echo "Overall:"; fi
   if ls $1 1> /dev/null 2>&1; then
     if [ "$CONTEXT" == "true" ]; then echo -n "[OVERALL] LLCRDMISSLAT(ns): "; fi
-    echo `awk '/LLCRDMISSLAT / {getline; getline; '"$4"' sum += $9; n++} END \
-      { if (n > 0) {print sum / n;} else {print "Null"} }' $2`
+    echo `awk '/LLCRDMISSLAT / {getline; getline; '"$3"' sum += $9; n++} END \
+      { if (n > 0) {print sum / n;} else {print "Null"} }' $1`
 
     if [ "$CONTEXT" == "true" ]; then echo -n "[OVERALL] ${PCM_MEM_CONFIG_SEARCH} Read Throughput(MB/s): "; fi
     echo `awk '/'"$PCM_MEM_CONFIG_SEARCH"' Read/ {sum += $'"$THROUGHPUT_READ_INDEX"'; n++} END \
-      { if (n > 0) {print sum / n;} else {print "Null"} }' $2`
+      { if (n > 0) {print sum / n;} else {print "Null"} }' $1`
 
     if [ "$CONTEXT" == "true" ]; then echo -n "[OVERALL] ${PCM_MEM_CONFIG_SEARCH} Write Throughput(MB/s): "; fi
     echo `awk '/'"$PCM_MEM_CONFIG_SEARCH"' Write/ {sum += $'"$THROUGHPUT_WRITE_INDEX"'; n++} END \
-      { if (n > 0) {print sum / n;} else {print "Null"} }' $2`
+      { if (n > 0) {print sum / n;} else {print "Null"} }' $1`
 
     if [ "$CONTEXT" == "true" ]; then echo -n "[OVERALL] DIMM Energy(J): "; fi
     echo `awk '/DIMM energy / {getline; getline; sum += $8; n++} END \
-      { if (n > 0) {print sum / n;} else {print "Null"} }' $2`
+      { if (n > 0) {print sum / n;} else {print "Null"} }' $1`
 
 
     GETLINES=" getline;"
     for FACTOR in $(eval echo {1..58}); do GETLINES="$GETLINES getline;"; done
-    GETLINES=$([ "$MEM_CONFIG" == "local" ] && echo "$GETLINES" ||
-            ([ "$3" == "remote" ] && echo "$GETLINES getline;" || echo "$GETLINES getline; getline; getline;"))
+    GETLINES=$([ "$2" == "local" ] && echo "$GETLINES" ||
+            ([ "$2" == "remote" ] && echo "$GETLINES getline;" || echo "$GETLINES getline; getline; getline;"))
     FULL_SEARCH="Core \(SKT\) "
     if [ "$CONTEXT" == "true" ]; then echo -n "[OVERALL] L3HIT: "; fi
     echo `awk '/'"$FULL_SEARCH"'/ {'"$GETLINES"' sum += $11; n++} END \
-      { if (n > 0) { print sum / n } else {print "Null"} }' $2`
+      { if (n > 0) { print sum / n } else {print "Null"} }' $1`
   else
     echo "Null"; echo "Null"; echo "Null"; echo "Null"; echo "Null"
   fi
@@ -357,9 +356,8 @@ if [ "$PROCESS" == "true" ]; then
                 done
 
                 SOCKET_PCM=$([ "$MEM_CONFIG" == "local" ] && echo "" || echo "getline;")
-                SAMPLE_PCM_FILE=${MEM_CONFIG}_${TAIL_CONFIG}_1.txt
                 PCM_FILES=${MEM_CONFIG}_${TAIL_CONFIG}_*.txt
-                general_pcm_parsing "${SAMPLE_PCM_FILE}" "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}"
+                general_pcm_parsing "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}"
                 echo ""
               done
               echo ""; echo "";
@@ -410,9 +408,8 @@ if [ "$PROCESS" == "true" ]; then
                 echo ""
 
                 SOCKET_PCM=$([ "$MEM_CONFIG" == "local" ] && echo "" || echo "getline;")
-                SAMPLE_PCM_FILE=${MEM_CONFIG}_${YCSB_CONFIG}_1.txt
                 PCM_FILES=${MEM_CONFIG}_${YCSB_CONFIG}_*.txt
-                general_pcm_parsing "${SAMPLE_PCM_FILE}" "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}"
+                general_pcm_parsing "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}"
                 echo ""
               done
               echo ""; echo "";
@@ -446,9 +443,8 @@ if [ "$PROCESS" == "true" ]; then
               done
 
               SOCKET_PCM=$([ "$MEM_CONFIG" == "local" ] && echo "" || echo "getline;")
-              SAMPLE_PCM_FILE=${MEM_CONFIG}_1.txt
               PCM_FILES=${MEM_CONFIG}_*.txt
-              general_pcm_parsing "${SAMPLE_PCM_FILE}" "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}"
+              general_pcm_parsing "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}"
               echo ""; echo ""; echo ""
           done
           ;;
@@ -491,9 +487,8 @@ if [ "$PROCESS" == "true" ]; then
 
 
               SOCKET_PCM=$([ "$MEM_CONFIG" == "local" ] && echo "" || echo "getline;")
-              SAMPLE_PCM_FILE=${MEM_CONFIG}_1.txt
               PCM_FILES=${MEM_CONFIG}_*.txt
-              general_pcm_parsing "${SAMPLE_PCM_FILE}" "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}"
+              general_pcm_parsing "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}"
               echo ""; echo ""; echo ""
           done
           ;;
