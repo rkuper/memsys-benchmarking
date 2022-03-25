@@ -57,7 +57,7 @@ MAIN_DIR=`pwd`
 REDIS_DIR=${MAIN_DIR}/tools/redis/src
 
 BENCHMARKS=$([ "$BENCHMARKS" == "all" -o -z "${BENCHMARKS+x}" -o "$BENCHMARKS" == "" ] \
-  && echo "tailbench ycsb memtier pmbench" || echo "$BENCHMARKS")
+  && echo "tailbench ycsb memtier pmbench cachebench" || echo "$BENCHMARKS")
 BENCHMARKS=($BENCHMARKS)
 
 declare -a TAIL_BENCHMARKS=("img-dnn" "masstree" "moses" "silo" "specjbb" "sphinx")
@@ -94,6 +94,7 @@ OUTPUT_PATH=`pwd`/${OUTPUT_DIR}/${OUTPUT_FILE}
 declare -a TAIL_TYPES=("Queue" "Service" "Sojourn")
 declare -a YCSB_TYPES=("INSERT" "READ" "UPDATE" "READ-MODIFY-WRITE")
 declare -a MEMTIER_TYPES=("Sets" "Gets" "Totals")
+declare -a CACHEBENCH_TYPES=("get" "set" "del")
 
 # NOTE: MEMTIER_METRICS are their indices!
 declare -a TAIL_METRICS=("50th" "75th" "90th" "95th" "99th" "99.9th" "99.99th" "Max" "Mean")
@@ -119,6 +120,8 @@ run_tailbench() {
     cd $TAIL_BENCHMARK
 
     for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
+      BALANCING=$([ "$MEM_CONFIG" == "both" ] && echo "1" || echo "0")
+      sudo sysctl -w kernel.numa_balancing=${BALANCING}; sleep 2
       CPU_NODE=$([ "$MEM_CONFIG" == "local" ] && echo "${LOCAL_NODE}" || echo "${REMOTE_NODE}")
       MEM_NODE=$([ "$MEM_CONFIG" == "local" ] && echo "${LOCAL_NODE}" || \
         ([ "$MEM_CONFIG" == "remote" ] && echo "${LOCAL_NODE}" || echo "${REMOTE_NODE},${LOCAL_NODE}"))
@@ -126,11 +129,35 @@ run_tailbench() {
         for SAMPLE in $(eval echo {1..$1}); do
           echo "${TAIL_CONFIG} - ${MEM_CONFIG} - ${SAMPLE}:"
           echo "-------------------"
+          # NUMA counters before run:
+          NUMA_HIT_BEFORE=`awk '/numa_hit/ {print $2}' /proc/vmstat`
+          NUMA_MISS_BEFORE=`awk '/numa_miss/ {print $2}' /proc/vmstat`
+          NUMA_MIGRATED_BEFORE=`awk '/numa_pages_migrated/ {print $2}' /proc/vmstat`
+          NUMA_SUCCESS_BEFORE=`awk '/pgmigrate_success/ {print $2}' /proc/vmstat`
+          NUMA_FAIL_BEFORE=`awk '/pgmigrate_fail/ {print $2}' /proc/vmstat`
+          NUMA_LOCAL_BEFORE=`awk '/numa_local/ {print $2}' /proc/vmstat`
+          NUMA_FOREIGN_BEFORE=`awk '/numa_foreign/ {print $2}' /proc/vmstat`
           sudo pcm --external_program sudo pcm-memory --external_program \
             sudo numactl --cpunodebind=${CPU_NODE} --membind=${MEM_NODE} \
             ./run_${TAIL_CONFIG}.sh > pcm_tmp.txt
-          if [ -f "lats.bin" ];
-          then
+          # NUMA counters after run:
+          NUMA_HIT=`expr $(awk '/numa_hit/ {print $2}' /proc/vmstat) - $NUMA_HIT_BEFORE`
+          NUMA_MISS=`expr $(awk '/numa_miss/ {print $2}' /proc/vmstat) - $NUMA_MISS_BEFORE`
+          NUMA_MIGRATED=`expr $(awk '/numa_pages_migrated/ {print $2}' /proc/vmstat) - $NUMA_MIGRATED_BEFORE`
+          NUMA_SUCCESS=`expr $(awk '/pgmigrate_success/ {print $2}' /proc/vmstat) - $NUMA_SUCCESS_BEFORE`
+          NUMA_FAIL=`expr $(awk '/pgmigrate_fail/ {print $2}' /proc/vmstat) - $NUMA_FAIL_BEFORE`
+          NUMA_LOCAL=`expr $(awk '/numa_local/ {print $2}' /proc/vmstat) - $NUMA_LOCAL_BEFORE`
+          NUMA_FOREIGN=`expr $(awk '/numa_foreign/ {print $2}' /proc/vmstat) - $NUMA_FOREIGN_BEFORE`
+          echo "numa_hits: $NUMA_HIT" >> pcm_tmp.txt
+          echo "numa_hit_rate: \
+                  `awk 'BEGIN {print ('"$NUMA_HIT"' / ('"$NUMA_HIT"' + '"$NUMA_MISS"'))}'`" >> pcm_tmp.txt
+          echo "numa_migrations: ${NUMA_MIGRATED}" >> pcm_tmp.txt
+          echo "numa_migration_success_rate: \
+                  `awk 'BEGIN {print ('"$NUMA_SUCCESS"' / ('"$NUMA_SUCCESS"' + '"$NUMA_FAIL"'))}'`" >> pcm_tmp.txt
+          echo "numa_local: $NUMA_LOCAL" >> pcm_tmp.txt
+          echo "numa_percent_local: \
+                  `awk 'BEGIN {print ('"$NUMA_LOCAL"' / ('"$NUMA_LOCAL"' + '"$NUMA_FOREIGN"'))}'`" >> pcm_tmp.txt
+          if [ -f "lats.bin" ]; then
             python3 ../utilities/parselats.py lats.bin > tmp.txt
             cat tmp.txt pcm_tmp.txt > ../../${OUTPUT_DIR}/tailbench/${TAIL_BENCHMARK}/${MEM_CONFIG}_${TAIL_CONFIG}_${SAMPLE}.txt
             rm lats.bin
@@ -155,6 +182,8 @@ run_ycsb() {
     echo ""
 
     for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
+      BALANCING=$([ "$MEM_CONFIG" == "both" ] && echo "1" || echo "0")
+      sudo sysctl -w kernel.numa_balancing=${BALANCING}; sleep 2
       CPU_NODE=$([ "$MEM_CONFIG" == "local" ] && echo "${LOCAL_NODE}" || echo "${REMOTE_NODE}")
       MEM_NODE=$([ "$MEM_CONFIG" == "local" ] && echo "${LOCAL_NODE}" || \
         ([ "$MEM_CONFIG" == "remote" ] && echo "${LOCAL_NODE}" || echo "${REMOTE_NODE},${LOCAL_NODE}"))
@@ -186,9 +215,11 @@ run_memtier() {
   echo ""
 
   for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
-      CPU_NODE=$([ "$MEM_CONFIG" == "local" ] && echo "${LOCAL_NODE}" || echo "${REMOTE_NODE}")
-      MEM_NODE=$([ "$MEM_CONFIG" == "local" ] && echo "${LOCAL_NODE}" || \
-        ([ "$MEM_CONFIG" == "remote" ] && echo "${LOCAL_NODE}" || echo "${REMOTE_NODE},${LOCAL_NODE}"))
+    BALANCING=$([ "$MEM_CONFIG" == "both" ] && echo "1" || echo "0")
+    sudo sysctl -w kernel.numa_balancing=${BALANCING}; sleep 2
+    CPU_NODE=$([ "$MEM_CONFIG" == "local" ] && echo "${LOCAL_NODE}" || echo "${REMOTE_NODE}")
+    MEM_NODE=$([ "$MEM_CONFIG" == "local" ] && echo "${LOCAL_NODE}" || \
+      ([ "$MEM_CONFIG" == "remote" ] && echo "${LOCAL_NODE}" || echo "${REMOTE_NODE},${LOCAL_NODE}"))
     for SAMPLE in $(eval echo {1..$TOTAL_SAMPLES}); do
       sudo rm -f ${REDIS_DIR}/*.rdb; sudo rm -f ./*.rdb; sudo rm -f ../*.rdb; sleep 4
       sudo numactl --cpunodebind=${CPU_NODE} --membind=${MEM_NODE} ${REDIS_DIR}/redis-server & sleep 4
@@ -214,6 +245,8 @@ run_pmbench() {
   echo ""
 
   for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
+    BALANCING=$([ "$MEM_CONFIG" == "both" ] && echo "1" || echo "0")
+    sudo sysctl -w kernel.numa_balancing=${BALANCING}; sleep 2
     CPU_NODE=$([ "$MEM_CONFIG" == "local" ] && echo "${LOCAL_NODE}" || echo "${REMOTE_NODE}")
     MEM_NODE=$([ "$MEM_CONFIG" == "local" ] && echo "${LOCAL_NODE}" || \
       ([ "$MEM_CONFIG" == "remote" ] && echo "${LOCAL_NODE}" || echo "${REMOTE_NODE},${LOCAL_NODE}"))
@@ -227,6 +260,32 @@ run_pmbench() {
     echo ""; echo ""
   done # End of mem config (local, remote, etc.)
   cd ..
+}
+
+# $1 = number of runs
+run_cachebench() {
+  cd cachelib/opt/cachelib/bin
+  echo "-================================="
+  echo "-=      General Cachebench       ="
+  echo "-================================="
+  echo ""
+
+  for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
+    BALANCING=$([ "$MEM_CONFIG" == "both" ] && echo "1" || echo "0")
+    sudo sysctl -w kernel.numa_balancing=${BALANCING}; sleep 2
+    CPU_NODE=$([ "$MEM_CONFIG" == "local" ] && echo "${LOCAL_NODE}" || echo "${REMOTE_NODE}")
+    MEM_NODE=$([ "$MEM_CONFIG" == "local" ] && echo "${LOCAL_NODE}" || \
+      ([ "$MEM_CONFIG" == "remote" ] && echo "${LOCAL_NODE}" || echo "${REMOTE_NODE},${LOCAL_NODE}"))
+    for SAMPLE in $(eval echo {1..$TOTAL_SAMPLES}); do
+      echo "${MEM_CONFIG} - ${SAMPLE}:"
+      echo "-------------------"
+      sudo ./run_cachebench.sh ${CPU_NODE} ${MEM_NODE}
+      mv cachebench-results.txt ../../../../${OUTPUT_DIR}/cachebench/${MEM_CONFIG}_${SAMPLE}.txt
+      echo ""
+    done # End of run
+    echo ""; echo ""
+  done # End of mem config (local, remote, etc.)
+  cd ../../../../
 }
 
 if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
@@ -251,6 +310,9 @@ if [ "$EXECUTE_BENCHMARKS" == "true" ]; then
       pmbench)
         run_pmbench ${TOTAL_SAMPLES}
         ;;
+      cachebench)
+        run_cachebench ${TOTAL_SAMPLES}
+        ;;
       *)
         echo "Unrecognized Benchmark"
         ;;
@@ -265,18 +327,21 @@ fi
 #            Processing            #
 ####################################
 
-# General helper for parsing pcm data
+# General helper for parsing general data
 # $1 = Wildcard log files for averaging results across runs
 # $2 = MEM_CONFIG
-# $3 = getline added for getting correct data
-general_pcm_parsing() {
+# $3 = 'getline' added for getting correct data
+# $4 = Can get NUMA data (tailbench cannot get numa stat info for it, so skip that part)
+general_parsing() {
   PCM_MEM_CONFIG_SEARCH=$([ "$2" == "local" ] && echo "NODE 0 Mem" || \
            ([ "$2" == "remote" ] && echo "NODE 0 Mem" || echo "System"))
   THROUGHPUT_READ_INDEX=$([ "$2" == "both" ] && echo "5" || echo "8")
   THROUGHPUT_WRITE_INDEX=$([ "$2" == "both" ] && echo "5" || echo "7")
 
   if [ "$CONTEXT" != "true" ]; then echo "Overall:"; fi
+
   if ls $1 1> /dev/null 2>&1; then
+    # PCM Data:
     if [ "$CONTEXT" == "true" ]; then echo -n "[OVERALL] LLCRDMISSLAT(ns): "; fi
     echo `awk '/LLCRDMISSLAT / {getline; getline; '"$3"' sum += $9; n++} END \
       { if (n > 0) {print sum / n;} else {print "Null"} }' $1`
@@ -293,7 +358,6 @@ general_pcm_parsing() {
     echo `awk '/DIMM energy / {getline; getline; sum += $8; n++} END \
       { if (n > 0) {print sum / n;} else {print "Null"} }' $1`
 
-
     GETLINES=" getline;"
     for FACTOR in $(eval echo {1..58}); do GETLINES="$GETLINES getline;"; done
     GETLINES=$([ "$2" == "local" ] && echo "$GETLINES" ||
@@ -302,8 +366,37 @@ general_pcm_parsing() {
     if [ "$CONTEXT" == "true" ]; then echo -n "[OVERALL] L3HIT: "; fi
     echo `awk '/'"$FULL_SEARCH"'/ {'"$GETLINES"' sum += $11; n++} END \
       { if (n > 0) { print sum / n } else {print "Null"} }' $1`
+
+    # VMStat Data:
+    if [ "$4" == "true" ]; then
+      if [ "$CONTEXT" == "true" ]; then echo -n "[OVERALL] NUMA Hits: "; fi
+      echo `awk '/numa_hits/ {sum += $2; n++} END { if (n > 0) {print sum / n;} else {print "Null"} }' $1`
+
+      if [ "$CONTEXT" == "true" ]; then echo -n "[OVERALL] NUMA Hit Rate: "; fi
+      echo `awk '/numa_hit_rate/ {sum += $2; n++} END { if (n > 0) {print sum / n;} else {print "Null"} }' $1`
+
+      if [ "$CONTEXT" == "true" ]; then echo -n "[OVERALL] NUMA Migrations: "; fi
+      echo `awk '/numa_migrations/ {sum += $2; n++} END { if (n > 0) {print sum / n;} else {print "Null"} }' $1`
+
+      if [ "$CONTEXT" == "true" ]; then echo -n "[OVERALL] NUMA Migration Success Rate: "; fi
+      echo `awk '/numa_migration_success_rate/ {sum += $2; n++} END { if (n > 0) {print sum / n;} else {print "Null"} }' $1`
+
+      if [ "$CONTEXT" == "true" ]; then echo -n "[OVERALL] NUMA Local Accesses: "; fi
+      echo `awk '/numa_local/ {sum += $2; n++} END { if (n > 0) {print sum / n;} else {print "Null"} }' $1`
+
+      if [ "$CONTEXT" == "true" ]; then echo -n "[OVERALL] NUMA Percent Local: "; fi
+      echo `awk '/numa_percent_local/ {sum += $2; n++} END { if (n > 0) {print sum / n;} else {print "Null"} }' $1`
+    else
+      echo "Null"; echo "Null"; echo "Null"; echo "Null"; echo "Null"; echo "Null"
+    fi
+
+
   else
+    # PCM Data
     echo "Null"; echo "Null"; echo "Null"; echo "Null"; echo "Null"
+
+    # VMStat Data
+    echo "Null"; echo "Null"; echo "Null"; echo "Null"; echo "Null"; echo "NULL"
   fi
 }
 
@@ -357,7 +450,7 @@ if [ "$PROCESS" == "true" ]; then
 
                 SOCKET_PCM=$([ "$MEM_CONFIG" == "local" ] && echo "" || echo "getline;")
                 PCM_FILES=${MEM_CONFIG}_${TAIL_CONFIG}_*.txt
-                general_pcm_parsing "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}"
+                general_parsing "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}" "true"
                 echo ""
               done
               echo ""; echo "";
@@ -409,7 +502,7 @@ if [ "$PROCESS" == "true" ]; then
 
                 SOCKET_PCM=$([ "$MEM_CONFIG" == "local" ] && echo "" || echo "getline;")
                 PCM_FILES=${MEM_CONFIG}_${YCSB_CONFIG}_*.txt
-                general_pcm_parsing "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}"
+                general_parsing "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}" "true"
                 echo ""
               done
               echo ""; echo "";
@@ -444,7 +537,7 @@ if [ "$PROCESS" == "true" ]; then
 
               SOCKET_PCM=$([ "$MEM_CONFIG" == "local" ] && echo "" || echo "getline;")
               PCM_FILES=${MEM_CONFIG}_*.txt
-              general_pcm_parsing "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}"
+              general_parsing "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}" "true"
               echo ""; echo ""; echo ""
           done
           ;;
@@ -488,7 +581,35 @@ if [ "$PROCESS" == "true" ]; then
 
               SOCKET_PCM=$([ "$MEM_CONFIG" == "local" ] && echo "" || echo "getline;")
               PCM_FILES=${MEM_CONFIG}_*.txt
-              general_pcm_parsing "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}"
+              general_parsing "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}" "true"
+              echo ""; echo ""; echo ""
+          done
+          ;;
+
+        cachebench)
+          echo "-============================="
+          echo "-=    GENERAL CACHEBENCH     ="
+          echo "-============================="
+          echo ""
+
+          for MEM_CONFIG in "${MEM_CONFIGS[@]}"; do
+            echo "$MEM_CONFIG:"
+            echo "--------------"
+              for CACHEBENCH_TYPE in "${CACHEBENCH_TYPES[@]}"; do
+                echo "$CACHEBENCH_TYPE:"
+                if ls ./${MEM_CONFIG}_*.txt 1> /dev/null 2>&1; then
+                  echo `awk '/'"$CACHEBENCH_TYPE"'       / {gsub(/,|\/|s/, "", $3); sum += $3; n++} END \
+                    {if (n > 0) {print sum / n} else {print "Null"}}' \
+                    ${MEM_CONFIG}_*.txt`
+                else
+                  echo "Null"
+                fi
+                echo ""
+              done
+
+              SOCKET_PCM=$([ "$MEM_CONFIG" == "local" ] && echo "" || echo "getline;")
+              PCM_FILES=${MEM_CONFIG}_*.txt
+              general_parsing "${PCM_FILES}" "${MEM_CONFIG}" "${SOCKET_PCM}" "true"
               echo ""; echo ""; echo ""
           done
           ;;

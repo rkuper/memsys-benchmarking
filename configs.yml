@@ -1,0 +1,130 @@
+# Format below is:
+# Benchmark Suite
+#     |
+#     --- Benchmark
+#           |
+#           --- Arguments
+
+tailbench:
+    img-dnn:
+        threads    : 1
+        reqs       : 100000000
+        warmupreqs : 5000
+        maxreqs    : 10000
+        qps        : 500
+        minsleepns : 10000
+    masstree:
+        - NOARGS
+    moses:
+        - NOARGS
+    silo:
+        - NOARGS
+    specjbb:
+        - NOARGS
+    sphinx:
+        - NOARGS
+
+ycsb:
+    a:
+        recordcountload          : 3250000
+        operationcountload       : 15000000
+        recordcountrun           : 1000000
+        operationcountrun        : 7500000
+        fieldcount               : 10
+        fieldlength              : 500
+        requestdistribution      : "uniform"
+        insertorder              : "hashed"
+        maxscanlength            : 1000
+        scanlengthdistribution   : "uniform"
+        hdrhistogram.percentiles : "50,75,90,95,99,99.9,99.99"
+        threadcount              : 12
+        database                 : "redis"
+        redis-server             : "redis.host=127.0.0.1"
+    b:
+        recordcountload          : 3250000
+        operationcountload       : 15000000
+        recordcountrun           : 1000000
+        operationcountrun        : 7500000
+        fieldcount               : 10
+        fieldlength              : 500
+        requestdistribution      : "uniform"
+        insertorder              : "hashed"
+        maxscanlength            : 1000
+        scanlengthdistribution   : "uniform"
+        hdrhistogram.percentiles : "50,75,90,95,99,99.9,99.99"
+        threadcount              : 12
+        database                 : "redis"
+        redis-server             : "redis.host=127.0.0.1"
+    c:
+        recordcountload          : 3250000
+        operationcountload       : 15000000
+        recordcountrun           : 1000000
+        operationcountrun        : 7500000
+        fieldcount               : 10
+        fieldlength              : 500
+        requestdistribution      : "uniform"
+        insertorder              : "hashed"
+        maxscanlength            : 1000
+        scanlengthdistribution   : "uniform"
+        hdrhistogram.percentiles : "50,75,90,95,99,99.9,99.99"
+        threadcount              : 12
+        database                 : "redis"
+        redis-server             : "redis.host=127.0.0.1"
+    d:
+        recordcountload          : 3250000
+        operationcountload       : 15000000
+        recordcountrun           : 1000000
+        operationcountrun        : 7500000
+        fieldcount               : 10
+        fieldlength              : 500
+        requestdistribution      : "uniform"
+        insertorder              : "hashed"
+        maxscanlength            : 1000
+        scanlengthdistribution   : "uniform"
+        hdrhistogram.percentiles : "50,75,90,95,99,99.9,99.99"
+        threadcount              : 12
+        database                 : "redis"
+        redis-server             : "redis.host=127.0.0.1"
+    f:
+        recordcountload          : 3250000
+        operationcountload       : 15000000
+        recordcountrun           : 1000000
+        operationcountrun        : 7500000
+        fieldcount               : 10
+        fieldlength              : 500
+        requestdistribution      : "uniform"
+        insertorder              : "hashed"
+        maxscanlength            : 1000
+        scanlengthdistribution   : "uniform"
+        hdrhistogram.percentiles : "50,75,90,95,99,99.9,99.99"
+        threadcount              : 12
+        database                 : "redis"
+        redis-server             : "redis.host=127.0.0.1"
+
+memtier:
+    general:
+        pipeline             : 11
+        clients              : 20
+        threads              : 1
+        data-size            : 500
+        requests             : 5000000
+        key-maximum          : 75000000
+        key-pattern          : "G:G"
+        ratio                : "1:1"
+        distinct-client-seed : "true"
+        randomize            : "true"
+        run-count            : 1
+        key-stddev           : 5125000
+        print-percentiles    : "50,75,90,95,99,99.9,99.99,100"
+
+pmbench:
+    general:
+        mapsize : 22000
+        setsize : 22000
+        time    : 120
+
+cachebench:
+    general:
+        json_test_config : "config.json"
+        timeout_seconds  : 240
+        progress         : "true"

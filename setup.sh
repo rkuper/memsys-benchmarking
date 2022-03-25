@@ -1,7 +1,7 @@
 #!/bin/bash
 # Main setup script for all benchmarks
 
-declare -a BENCHMARKS=("tailbench" "ycsb" "memtier" "pmbench")
+declare -a BENCHMARKS=("tailbench" "ycsb" "memtier" "pmbench" "cachebench")
 declare -a TAIL_BENCHMARKS=("harness" "img-dnn" "masstree" "moses" "silo" "specjbb" "sphinx" "xapian")
 
 sudo apt install -y htop openjdk-8-jdk numatop numactl ipmctl ndctl daxctl
@@ -53,41 +53,39 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
         ;;
 
 
-
       ycsb)
-        # extra result directories
+        # extra result sub-directories and install dependencies
         mkdir results/${BENCHMARK}/a results/${BENCHMARK}/b results/${BENCHMARK}/c results/${BENCHMARK}/d results/${BENCHMARK}/f
-
-        # Dependencies
         sudo apt install -y memcached libmemcached-dev maven
         ;;
 
 
-
       memtier)
+        # Get dependencies and build
         cd ${BENCHMARK}
-
-        # Dependencies
         sudo apt install -y build-essential autoconf automake libpcre3-dev libevent-dev pkg-config zlib1g-dev
-
-        # Build
         autoreconf -ivf; ./configure
         make; sudo make install
         cd ..
         ;;
 
 
-
       pmbench)
+        # Get dependencies and build
         cd ${BENCHMARK}
-
-        # Dependencies
         sudo apt install -y libxml2-dev
-
-        # Build
         make
         cd ..
         ;;
+
+
+      cachebench)
+        # clone repo and build using Facebook's own build script
+        git clone https://github.com/facebook/CacheLib cachebench; cd ${BENCHMARK}
+        ./contrib/build.sh -j -T
+        cd ../
+        ;;
+
 
       *)
         echo "[ERROR] Could not find benchmark: ${BENCHMARK}"
