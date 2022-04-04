@@ -1,130 +1,334 @@
+# General info for all benchmarks
+# "exe-prefixes" are the statements before commands to typically capture performance results
+#     like Intel's pcm or vtune, or AMD's uprof
+#     NOTE: Using multiple performance monitors can cause issues since they may use the same
+#          performance counters. Also, both vtune and uprof are not installed by this repo
+#          and may need to be adjusted to get the correct executable path
+# "numa-config" contains info for the numa prefix
+general:
+    exe-prefixes:
+        # vtune            : "sudo /opt/intel/oneapi/vtune/2022.1.0/bin64/vtune -collect performance-snapshot "
+        # uprof            : "sudo /opt/AMDuProf_3.5-671/bin/AMDuProfCLI collect -o ./uprof-out "
+        pcm              : "sudo pcm --external_program sudo pcm-memory --external_program "
+        numa             : "sudo numactl --cpunodebind={1} --membind={2} "
+    numa-config:
+        local-node       : 0
+        remote-node      : 1
+    execution:
+        samples          : 5
+    paths:
+        output-directory : "results"
+        script-root      : "Null - overwritten in script for current working directory :)"
+        redis-directory  : "./tools/redis/src"
+    overwrite:
+        threads          : 12
+    operations:
+        execute          : true
+        process          : false
+        analyze          : false
+    mem-configs:
+        local            : true
+        remote           : false
+        both             : false
+
+
+
 # Format below is:
 # Benchmark Suite
 #     |
 #     --- Benchmark
 #           |
-#           --- Arguments
-
+#           --- Sub-benchmark
+#                 |
+#                 --- Info like the path and executable
+#                 --- Parameters for the executable
 tailbench:
-    img-dnn:
-        threads    : 1
-        reqs       : 100000000
-        warmupreqs : 5000
-        maxreqs    : 10000
-        qps        : 500
-        minsleepns : 10000
-    masstree:
-        - NOARGS
-    moses:
-        - NOARGS
-    silo:
-        - NOARGS
-    specjbb:
-        - NOARGS
-    sphinx:
-        - NOARGS
+    img-dnn-integrated:
+        info:
+            path         : "./tailbench/img-dnn"
+            executable   : "run_integrated.sh"
+        parameters:
+            threads      : 1
+            reqs         : 100000000
+            warmup_reqs  : 5000
+            max_reqs     : 10000
+            qps          : 500
+            min_sleep_ns : 10000
+    img-dnn-networked:
+        info:
+            path         : "./tailbench/img-dnn"
+            executable   : "run_networked.sh"
+        parameters:
+            threads      : 1
+            reqs         : 100000000
+            warmup_reqs  : 5000
+            max_reqs     : 10000
+            qps          : 500
+            data_dir     : "../data/img-dnn/mnist"
+    masstree-integrated:
+        info:
+            path         : "./tailbench/masstree"
+            executable   : "run_integrated.sh"
+        parameters:
+            threads      : 1
+            warmup_reqs  : 14000
+            max_reqs     : 100000
+            qps          : 1000
+            min_sleep_ns : 10000
+    moses-integrated:
+        info:
+            path         : "./tailbench/moses"
+            executable   : "run_integrated.sh"
+        parameters:
+            threads      : 1
+            warmup_reqs  : 500
+            max_reqs     : 500
+            qps          : 100
+            min_sleep_ns : 10000
+            num_tasks    : 100000
+            verbose      : 0
+    moses-networked:
+        info:
+            path         : "./tailbench/moses"
+            executable   : "run_networked.sh"
+        parameters:
+            threads      : 1
+            warmup_reqs  : 500
+            max_reqs     : 500
+            qps          : 100
+            num_tasks    : 100000
+            verbose      : 0
+    silo-integrated:
+        info:
+            path         : "./tailbench/silo"
+            executable   : "run_integrated.sh"
+        parameters:
+            threads        : 1
+            warehouses     : 1
+            ops_per_worker : 10000000
+            warmup_reqs    : 20000
+            max_reqs       : 100000
+            qps            : 2000
+            min_sleep_ns   : 10000
+    silo-networked:
+        info:
+            path         : "./tailbench/silo"
+            executable   : "run_networked.sh"
+        parameters:
+            threads        : 1
+            warehouses     : 1
+            ops_per_worker : 10000000
+            warmup_reqs    : 20000
+            max_reqs       : 100000
+            qps            : 2000
+            min_sleep_ns   : 10000
+    specjbb-integrated:
+        info:
+            path         : "./tailbench/specjbb"
+            executable   : "run_integrated.sh"
+        parameters:
+            threads      : 1
+            warehouses   : 1
+            warmup_reqs  : 25000
+            max_reqs     : 25000
+            qps          : 2000
+            min_sleep_ns : 10000
+    specjbb-networked:
+        info:
+            path         : "./tailbench/specjbb"
+            executable   : "run_networked.sh"
+        parameters:
+            threads        : 1
+            warehouses     : 1
+            warmup_reqs    : 25000
+            max_reqs       : 25000
+            qps            : 5000
+            min_sleep_ns   : 10000
+    sphinx-integrated:
+        info:
+            path         : "./tailbench/sphinx"
+            executable   : "run_integrated.sh"
+        parameters:
+            threads      : 1
+            warmup_reqs  : 10
+            max_reqs     : 10
+            qps          : 500
+            min_sleep_ns : 10000
+    sphinx-networked:
+        info:
+            path         : "./tailbench/sphinx"
+            executable   : "run_networked.sh"
+        parameters:
+            threads      : 1
+            warmup_reqs  : 10
+            max_reqs     : 10
+            qps          : 500
+            min_sleep_ns : 10000
 
 ycsb:
     a:
-        recordcountload          : 3250000
-        operationcountload       : 15000000
-        recordcountrun           : 1000000
-        operationcountrun        : 7500000
-        fieldcount               : 10
-        fieldlength              : 500
-        requestdistribution      : "uniform"
-        insertorder              : "hashed"
-        maxscanlength            : 1000
-        scanlengthdistribution   : "uniform"
-        hdrhistogram.percentiles : "50,75,90,95,99,99.9,99.99"
-        threadcount              : 12
-        database                 : "redis"
-        redis-server             : "redis.host=127.0.0.1"
+        info:
+            path         : "./ycsb"
+            executable   : "bin/ycsb"
+        parameters:
+            workload                 : "site.ycsb.workloads.CoreWorkload"
+            readallfields            : "true"
+            readproportion           : 0.5
+            updateproportion         : 0.5
+            scanproportion           : 0
+            insertproportion         : 0
+            recordcountload          : 3250000
+            operationcountload       : 15000000
+            recordcountrun           : 1000000
+            operationcountrun        : 7500000
+            fieldcount               : 10
+            fieldlength              : 500
+            requestdistribution      : "uniform"
+            insertorder              : "hashed"
+            maxscanlength            : 1000
+            scanlengthdistribution   : "uniform"
+            hdrhistogram.percentiles : "50,75,90,95,99,99.9,99.99"
+            threadcount              : 12
+            database                 : "redis"
+            redis-server             : "redis.host=127.0.0.1"
     b:
-        recordcountload          : 3250000
-        operationcountload       : 15000000
-        recordcountrun           : 1000000
-        operationcountrun        : 7500000
-        fieldcount               : 10
-        fieldlength              : 500
-        requestdistribution      : "uniform"
-        insertorder              : "hashed"
-        maxscanlength            : 1000
-        scanlengthdistribution   : "uniform"
-        hdrhistogram.percentiles : "50,75,90,95,99,99.9,99.99"
-        threadcount              : 12
-        database                 : "redis"
-        redis-server             : "redis.host=127.0.0.1"
+        info:
+            path         : "./ycsb"
+            executable   : "bin/ycsb"
+        parameters:
+            workload                 : "site.ycsb.workloads.CoreWorkload"
+            readallfields            : "true"
+            readproportion           : 0.95
+            updateproportion         : 0.05
+            scanproportion           : 0
+            insertproportion         : 0
+            recordcountload          : 3250000
+            operationcountload       : 15000000
+            recordcountrun           : 1000000
+            operationcountrun        : 7500000
+            fieldcount               : 10
+            fieldlength              : 500
+            requestdistribution      : "uniform"
+            insertorder              : "hashed"
+            maxscanlength            : 1000
+            scanlengthdistribution   : "uniform"
+            hdrhistogram.percentiles : "50,75,90,95,99,99.9,99.99"
+            threadcount              : 12
+            database                 : "redis"
+            redis-server             : "redis.host=127.0.0.1"
     c:
-        recordcountload          : 3250000
-        operationcountload       : 15000000
-        recordcountrun           : 1000000
-        operationcountrun        : 7500000
-        fieldcount               : 10
-        fieldlength              : 500
-        requestdistribution      : "uniform"
-        insertorder              : "hashed"
-        maxscanlength            : 1000
-        scanlengthdistribution   : "uniform"
-        hdrhistogram.percentiles : "50,75,90,95,99,99.9,99.99"
-        threadcount              : 12
-        database                 : "redis"
-        redis-server             : "redis.host=127.0.0.1"
-    d:
-        recordcountload          : 3250000
-        operationcountload       : 15000000
-        recordcountrun           : 1000000
-        operationcountrun        : 7500000
-        fieldcount               : 10
-        fieldlength              : 500
-        requestdistribution      : "uniform"
-        insertorder              : "hashed"
-        maxscanlength            : 1000
-        scanlengthdistribution   : "uniform"
-        hdrhistogram.percentiles : "50,75,90,95,99,99.9,99.99"
-        threadcount              : 12
-        database                 : "redis"
-        redis-server             : "redis.host=127.0.0.1"
+        info:
+            path         : "./ycsb"
+            executable   : "bin/ycsb"
+        parameters:
+            workload                 : "site.ycsb.workloads.CoreWorkload"
+            readallfields            : "true"
+            readproportion           : 1
+            updateproportion         : 0
+            scanproportion           : 0
+            insertproportion         : 0
+            recordcountload          : 3250000
+            operationcountload       : 15000000
+            recordcountrun           : 1000000
+            operationcountrun        : 7500000
+            fieldcount               : 10
+            fieldlength              : 500
+            requestdistribution      : "uniform"
+            insertorder              : "hashed"
+            maxscanlength            : 1000
+            scanlengthdistribution   : "uniform"
+            hdrhistogram.percentiles : "50,75,90,95,99,99.9,99.99"
+            threadcount              : 12
+            database                 : "redis"
+            redis-server             : "redis.host=127.0.0.1"
     f:
-        recordcountload          : 3250000
-        operationcountload       : 15000000
-        recordcountrun           : 1000000
-        operationcountrun        : 7500000
-        fieldcount               : 10
-        fieldlength              : 500
-        requestdistribution      : "uniform"
-        insertorder              : "hashed"
-        maxscanlength            : 1000
-        scanlengthdistribution   : "uniform"
-        hdrhistogram.percentiles : "50,75,90,95,99,99.9,99.99"
-        threadcount              : 12
-        database                 : "redis"
-        redis-server             : "redis.host=127.0.0.1"
+        info:
+            path         : "./ycsb"
+            executable   : "bin/ycsb"
+        parameters:
+            workload                  : "site.ycsb.workloads.CoreWorkload"
+            readallfields             : "true"
+            readproportion            : 0.5
+            updateproportion          : 0
+            scanproportion            : 0
+            insertproportion          : 0
+            readmodifywriteproportion : 0.5
+            recordcountload           : 3250000
+            operationcountload        : 15000000
+            recordcountrun            : 1000000
+            operationcountrun         : 7500000
+            fieldcount                : 10
+            fieldlength               : 500
+            requestdistribution       : "uniform"
+            insertorder               : "hashed"
+            maxscanlength             : 1000
+            scanlengthdistribution    : "uniform"
+            hdrhistogram.percentiles  : "50,75,90,95,99,99.9,99.99"
+            threadcount               : 12
+            database                  : "redis"
+            redis-server              : "redis.host=127.0.0.1"
+    d:
+        info:
+            path         : "./ycsb"
+            executable   : "bin/ycsb"
+        parameters:
+            workload                 : "site.ycsb.workloads.CoreWorkload"
+            readallfields            : "true"
+            readproportion           : 0.95
+            updateproportion         : 0
+            scanproportion           : 0
+            insertproportion         : 0.05
+            recordcountload          : 3250000
+            operationcountload       : 15000000
+            recordcountrun           : 1000000
+            operationcountrun        : 7500000
+            fieldcount               : 10
+            fieldlength              : 500
+            requestdistribution      : "uniform"
+            insertorder              : "hashed"
+            maxscanlength            : 1000
+            scanlengthdistribution   : "uniform"
+            hdrhistogram.percentiles : "50,75,90,95,99,99.9,99.99"
+            threadcount              : 12
+            database                 : "redis"
+            redis-server             : "redis.host=127.0.0.1"
 
 memtier:
-    general:
-        pipeline             : 11
-        clients              : 20
-        threads              : 1
-        data-size            : 500
-        requests             : 5000000
-        key-maximum          : 75000000
-        key-pattern          : "G:G"
-        ratio                : "1:1"
-        distinct-client-seed : "true"
-        randomize            : "true"
-        run-count            : 1
-        key-stddev           : 5125000
-        print-percentiles    : "50,75,90,95,99,99.9,99.99,100"
+    memtier:
+        info:
+            path         : "./memtier"
+            executable   : "memtier"
+        parameters:
+            pipeline             : 11
+            clients              : 20
+            threads              : 1
+            data-size            : 500
+            requests             : 5000000
+            key-maximum          : 75000000
+            key-pattern          : "G:G"
+            ratio                : "1:1"
+            distinct-client-seed : "true"
+            randomize            : "true"
+            run-count            : 1
+            key-stddev           : 5125000
+            print-percentiles    : "50,75,90,95,99,99.9,99.99,100"
 
 pmbench:
-    general:
-        mapsize : 22000
-        setsize : 22000
-        time    : 120
+    pmbench:
+        info:
+            path         : "./pmbench"
+            executable   : "pmbench"
+        parameters:
+            mapsize : 22000
+            setsize : 22000
+            time    : 120
 
 cachebench:
-    general:
-        json_test_config : "config.json"
-        timeout_seconds  : 240
-        progress         : "true"
+    cachebench:
+        info:
+            path         : "./cachebench/opt/cachelib/bin"
+            executable   : "cachebench"
+        parameters:
+            json_test_config : "config.json"
+            timeout_seconds  : 240
+            progress         : "true"
