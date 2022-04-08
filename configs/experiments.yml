@@ -1,0 +1,24 @@
+# Experiment definitiosn below containing general information on what operations to do
+numa_mode_compare:
+    paths:
+        output-directory       : "numa_node_compare"
+    operations:
+        execute                : true
+        process                : false
+        analyze                : false
+    numa-node-configs:
+        small-cpu-node         : 1
+        small-mem-node         : 1
+        big-cpu-node           : 0
+        big-mem-node           : 0
+    numa-mem-configs:
+        - local
+        - remote
+        - both
+    benchmarks:
+        # - tailbench
+        - ycsb
+        - memtier
+        - pmbench
+        # - cachebench
+        # - gapbs

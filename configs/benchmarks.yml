@@ -1,37 +1,6 @@
-# General info for all benchmarks
-# "exe-prefixes" are the statements before commands to typically capture performance results
-#     like Intel's pcm or vtune, or AMD's uprof
-#     NOTE: Using multiple performance monitors can cause issues since they may use the same
-#          performance counters. Also, both vtune and uprof are not installed by this repo
-#          and may need to be adjusted to get the correct executable path
-# "numa-config" contains info for the numa prefix
-general:
-    exe-prefixes:
-        # vtune            : "sudo /opt/intel/oneapi/vtune/2022.1.0/bin64/vtune -collect performance-snapshot "
-        # uprof            : "sudo /opt/AMDuProf_3.5-671/bin/AMDuProfCLI collect -o ./uprof-out "
-        pcm              : "sudo pcm --external_program sudo pcm-memory --external_program "
-        numa             : "sudo numactl --cpunodebind={1} --membind={2} "
-    numa-config:
-        local-node       : 0
-        remote-node      : 1
-    execution:
-        samples          : 5
-    paths:
-        output-directory : "results"
-        script-root      : "Null - overwritten in script for current working directory :)"
-        redis-directory  : "./tools/redis/src"
-    overwrite:
-        threads          : 12
-    operations:
-        execute          : true
-        process          : false
-        analyze          : false
-    mem-configs:
-        local            : true
-        remote           : false
-        both             : false
-
-
+# Overrides for any parameter below
+overrides:
+    threads                : 12
 
 # Format below is:
 # Benchmark Suite
@@ -45,7 +14,7 @@ general:
 tailbench:
     img-dnn-integrated:
         info:
-            path         : "./tailbench/img-dnn"
+            path         : "./benchmarks/tailbench/img-dnn"
             executable   : "run_integrated.sh"
         parameters:
             threads      : 1
@@ -56,7 +25,7 @@ tailbench:
             min_sleep_ns : 10000
     img-dnn-networked:
         info:
-            path         : "./tailbench/img-dnn"
+            path         : "./benchmarks/tailbench/img-dnn"
             executable   : "run_networked.sh"
         parameters:
             threads      : 1
@@ -67,7 +36,7 @@ tailbench:
             data_dir     : "../data/img-dnn/mnist"
     masstree-integrated:
         info:
-            path         : "./tailbench/masstree"
+            path         : "./benchmarks/tailbench/masstree"
             executable   : "run_integrated.sh"
         parameters:
             threads      : 1
@@ -77,7 +46,7 @@ tailbench:
             min_sleep_ns : 10000
     moses-integrated:
         info:
-            path         : "./tailbench/moses"
+            path         : "./benchmarks/tailbench/moses"
             executable   : "run_integrated.sh"
         parameters:
             threads      : 1
@@ -89,7 +58,7 @@ tailbench:
             verbose      : 0
     moses-networked:
         info:
-            path         : "./tailbench/moses"
+            path         : "./benchmarks/tailbench/moses"
             executable   : "run_networked.sh"
         parameters:
             threads      : 1
@@ -100,7 +69,7 @@ tailbench:
             verbose      : 0
     silo-integrated:
         info:
-            path         : "./tailbench/silo"
+            path         : "./benchmarks/tailbench/silo"
             executable   : "run_integrated.sh"
         parameters:
             threads        : 1
@@ -112,7 +81,7 @@ tailbench:
             min_sleep_ns   : 10000
     silo-networked:
         info:
-            path         : "./tailbench/silo"
+            path         : "./benchmarks/tailbench/silo"
             executable   : "run_networked.sh"
         parameters:
             threads        : 1
@@ -124,7 +93,7 @@ tailbench:
             min_sleep_ns   : 10000
     specjbb-integrated:
         info:
-            path         : "./tailbench/specjbb"
+            path         : "./benchmarks/tailbench/specjbb"
             executable   : "run_integrated.sh"
         parameters:
             threads      : 1
@@ -135,7 +104,7 @@ tailbench:
             min_sleep_ns : 10000
     specjbb-networked:
         info:
-            path         : "./tailbench/specjbb"
+            path         : "./benchmarks/tailbench/specjbb"
             executable   : "run_networked.sh"
         parameters:
             threads        : 1
@@ -146,7 +115,7 @@ tailbench:
             min_sleep_ns   : 10000
     sphinx-integrated:
         info:
-            path         : "./tailbench/sphinx"
+            path         : "./benchmarks/tailbench/sphinx"
             executable   : "run_integrated.sh"
         parameters:
             threads      : 1
@@ -156,7 +125,7 @@ tailbench:
             min_sleep_ns : 10000
     sphinx-networked:
         info:
-            path         : "./tailbench/sphinx"
+            path         : "./benchmarks/tailbench/sphinx"
             executable   : "run_networked.sh"
         parameters:
             threads      : 1
@@ -166,9 +135,9 @@ tailbench:
             min_sleep_ns : 10000
 
 ycsb:
-    a:
+    workloada:
         info:
-            path         : "./ycsb"
+            path         : "./benchmarks/ycsb"
             executable   : "bin/ycsb"
         parameters:
             workload                 : "site.ycsb.workloads.CoreWorkload"
@@ -191,9 +160,9 @@ ycsb:
             threadcount              : 12
             database                 : "redis"
             redis-server             : "redis.host=127.0.0.1"
-    b:
+    workloadb:
         info:
-            path         : "./ycsb"
+            path         : "./benchmarks/ycsb"
             executable   : "bin/ycsb"
         parameters:
             workload                 : "site.ycsb.workloads.CoreWorkload"
@@ -216,9 +185,9 @@ ycsb:
             threadcount              : 12
             database                 : "redis"
             redis-server             : "redis.host=127.0.0.1"
-    c:
+    workloadc:
         info:
-            path         : "./ycsb"
+            path         : "./benchmarks/ycsb"
             executable   : "bin/ycsb"
         parameters:
             workload                 : "site.ycsb.workloads.CoreWorkload"
@@ -241,9 +210,9 @@ ycsb:
             threadcount              : 12
             database                 : "redis"
             redis-server             : "redis.host=127.0.0.1"
-    f:
+    workloadf:
         info:
-            path         : "./ycsb"
+            path         : "./benchmarks/ycsb"
             executable   : "bin/ycsb"
         parameters:
             workload                  : "site.ycsb.workloads.CoreWorkload"
@@ -267,9 +236,9 @@ ycsb:
             threadcount               : 12
             database                  : "redis"
             redis-server              : "redis.host=127.0.0.1"
-    d:
+    workloadd:
         info:
-            path         : "./ycsb"
+            path         : "./benchmarks/ycsb"
             executable   : "bin/ycsb"
         parameters:
             workload                 : "site.ycsb.workloads.CoreWorkload"
@@ -296,8 +265,8 @@ ycsb:
 memtier:
     memtier:
         info:
-            path         : "./memtier"
-            executable   : "memtier"
+            path         : "./benchmarks/memtier"
+            executable   : "memtier_benchmark"
         parameters:
             pipeline             : 11
             clients              : 20
@@ -316,19 +285,19 @@ memtier:
 pmbench:
     pmbench:
         info:
-            path         : "./pmbench"
+            path         : "./benchmarks/pmbench"
             executable   : "pmbench"
         parameters:
             mapsize : 22000
             setsize : 22000
             time    : 120
 
-cachebench:
-    cachebench:
-        info:
-            path         : "./cachebench/opt/cachelib/bin"
-            executable   : "cachebench"
-        parameters:
-            json_test_config : "config.json"
-            timeout_seconds  : 240
-            progress         : "true"
+# cachebench:
+#     cachebench:
+#         info:
+#             path         : "./benchmarks/cachebench/opt/cachelib/bin"
+#             executable   : "cachebench"
+#         parameters:
+#             json_test_config : "config.json"
+#             timeout_seconds  : 240
+#             progress         : "true"

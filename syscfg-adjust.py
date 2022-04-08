@@ -13,7 +13,7 @@ def mem_capacity(target_node, target_capacity):
                 if (os.path.isdir(os.path.join(mem_dir, mem)) and "memory" in mem)]
 
     node_mems = {}
-    for numa_node in range(numa.get_max_node()+1):
+    for numa_node in range(numa.info.get_max_node()+1):
         node_mems["node" + str(numa_node)] = []
 
     # Adds mem blocks to their respective dictionary list
@@ -30,19 +30,19 @@ def mem_capacity(target_node, target_capacity):
 
 
     # Offline as much as possible
-    original_node_mem = numa.get_node_size(int(target_node))[1] * 0.95
-    current_node_mem = numa.get_node_size(int(target_node))[1] * 0.95
+    original_node_mem = numa.memory.node_memory_info(int(target_node))[1] * 0.95
+    current_node_mem = numa.memory.node_memory_info(int(target_node))[1] * 0.95
     if (current_node_mem/1000000000) > int(target_capacity):
         for mem in node_mems["node" + str(target_node)]:
             print("Offlining 'memory" + mem + "'...", end=" ")
             os.system("sudo sh -c 'echo 0 > /sys/devices/system/memory/memory" + mem + "/online'")
             print("Done!")
-            current_node_mem = numa.get_node_size(int(target_node))[1] * 0.95
+            current_node_mem = numa.memory.node_memory_info(int(target_node))[1] * 0.95
             if (current_node_mem/1000000000) < int(target_capacity):
                 print("Onlining 'memory" + mem + "'...", end=" ")
                 os.system("sudo sh -c 'echo 1 > /sys/devices/system/memory/memory" + mem + "/online'")
                 print("Done!")
-                current_node_mem = numa.get_node_size(int(target_node))[1] * 0.95
+                current_node_mem = numa.memory.node_memory_info(int(target_node))[1] * 0.95
                 break
     else:
         print("[WARNING] Already below target node capacity (~" + current_node_mem/1000000000 + "GB)")
@@ -99,14 +99,17 @@ def main():
             "Desired memory capacity. This may go slightly above (+/-2GB) when not exact (default = 7GB)", default="7")
     parser.add_argument("-n", "--node", help = \
             "Node to change memory size (default = 0)", default="0")
-    parser.add_argument("-H", "--disable_hyperthreading", help = \
+    parser.add_argument("-H,", "--change_hyperthreading", help = \
+            "Allow changes to current hyperthreading status (default = false)", action='store_true')
+    parser.add_argument("-d", "--disable_hyperthreading", help = \
             "Offline visible hyperthreaded_cores (default = false)", action='store_true')
     args = parser.parse_args()
 
-    if (args.offline_mem):
+    if args.offline_mem:
         mem_capacity(args.node, args.capacity)
 
-    hyperthreading(args.disable_hyperthreading)
+    if args.change_hyperthreading:
+        hyperthreading(args.disable_hyperthreading)
     return
 
 

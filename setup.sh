@@ -23,7 +23,7 @@ for BENCHMARK in "${BENCHMARKS[@]}"; do
                             liblzma-dev graphviz imagemagick libgoogle-perftools-dev ant uuid-dev \
                             libjemalloc-dev libnuma-dev libdb-dev libdb++-dev libaio-dev libssl-dev swig bison \
                             libreadline-dev libgtop2-dev libncurses-dev libpulse-dev
-        sudo pip3 install numpy pandas matplotlib scipy numa
+        sudo pip3 install numpy pandas matplotlib scipy numa py-libnuma
 
         # Build each individual test
         if [ "`command -v gcc-5`" == "" ]; then

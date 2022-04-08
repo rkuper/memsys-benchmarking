@@ -1,0 +1,23 @@
+# General info for all benchmarks
+# "exe-prefixes" are the statements before commands to typically capture performance results
+#     like Intel's pcm or vtune, or AMD's uprof
+#     NOTE: Using multiple performance monitors can cause issues since they may use the same
+#          performance counters. Also, both vtune and uprof are not installed by this repo
+#          and may need to be adjusted to get the correct executable path
+# "numa-config" contains info for the defaulted NUMA nodes (remote is meant to contain far
+#     less memory than local).
+script-settings:
+    status-update-interval : 30
+exe-prefixes:
+    # vtune                  : "sudo /opt/intel/oneapi/vtune/2022.1.0/bin64/vtune -collect performance-snapshot "
+    # uprof                  : "sudo /opt/AMDuProf_3.5-671/bin/AMDuProfCLI collect -o ./uprof-out "
+    pcm                    : "sudo pcm --external_program sudo pcm-memory --external_program"
+    numa                   : "sudo numactl --cpunodebind={1} --membind={2}"
+execution:
+    cpu-numa-node          : 0
+    mem-numa-node          : 0
+    samples                : 5
+paths:
+    script-root            : "Null - overwritten in script for current working directory :)"
+    redis-directory        : "./tools/redis/src"
+    results-directory      : "./results"
