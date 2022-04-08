@@ -290,7 +290,8 @@ pmbench:
         parameters:
             mapsize : 22000
             setsize : 22000
-            time    : 120
+            threads : 10
+            time    : 20
 
 # cachebench:
 #     cachebench:

@@ -17,8 +17,8 @@ numa_mode_compare:
         - both
     benchmarks:
         # - tailbench
-        - ycsb
-        - memtier
+        # - ycsb
+        # - memtier
         - pmbench
         # - cachebench
         # - gapbs

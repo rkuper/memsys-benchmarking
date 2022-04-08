@@ -7,7 +7,7 @@
 # "numa-config" contains info for the defaulted NUMA nodes (remote is meant to contain far
 #     less memory than local).
 script-settings:
-    status-update-interval : 30
+    status-update-interval : 20
 exe-prefixes:
     # vtune                  : "sudo /opt/intel/oneapi/vtune/2022.1.0/bin64/vtune -collect performance-snapshot "
     # uprof                  : "sudo /opt/AMDuProf_3.5-671/bin/AMDuProfCLI collect -o ./uprof-out "
@@ -16,7 +16,7 @@ exe-prefixes:
 execution:
     cpu-numa-node          : 0
     mem-numa-node          : 0
-    samples                : 5
+    samples                : 2
 paths:
     script-root            : "Null - overwritten in script for current working directory :)"
     redis-directory        : "./tools/redis/src"

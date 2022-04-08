@@ -73,7 +73,7 @@ class benchmark:
         return vmstat_values
 
 
-    def execute(self, general_configs, exe_prefixes, output_filename):
+    def execute(self, general_configs, exe_prefixes, output_directory, output_filename):
         cmd = exe_prefixes + " ./" + self.info["executable"]
         cmd += " " + " ".join(self.parameters)
         if not os.path.exists(self.info["path"]):
@@ -84,24 +84,23 @@ class benchmark:
         starting_numa_results = self.get_vmstat_info()
         start_time = time.time()
 
-        # output_location = os.path.join(experiment_result_directory, self.suite, self.name, output_filename)
-        # output_fp = open(output_location, 'w')
-        # try:
-        #     update = 0
-        #     active_benchmark = subprocess.Popen(cmd, cwd=self.info["path"], stdout=output_fp, shell=True, stderr=subprocess.DEVNULL)
-        #     while active_benchmark.poll() is None:
-        #         update += 1
-        #         print(Fore.YELLOW + "[Update " + str(update) + "] " + Style.RESET_ALL + self.suite + " - " + self.name + ": " + \
-        #             datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
-
-        #         time.sleep(general_configs["script-settings"]["status-update-interval"])
-        # except:
-        #     print(Fore.RED + "[ERROR]" + Style.RESET_ALL + " Failed to run benchmark!")
-        #     active_benchmark.terminate()
+        output_location = os.path.join(general_configs["paths"]["results-directory"], output_directory, self.suite, self.name, output_filename)
+        output_fp = open(output_location, 'w')
+        try:
+            update = 0
+            active_benchmark = subprocess.Popen(cmd, cwd=self.info["path"], stdout=output_fp, shell=True, stderr=subprocess.DEVNULL)
+            while active_benchmark.poll() is None:
+                time.sleep(general_configs["script-settings"]["status-update-interval"])
+                update += 1
+                print(Fore.YELLOW + "[Update " + str(update) + "] " + Style.RESET_ALL + self.suite + " - " + self.name + ": " + \
+                    datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+        except:
+            print(Fore.RED + "[ERROR]" + Style.RESET_ALL + " Failed to run benchmark!")
+            active_benchmark.terminate()
 
         end_time = time.time()
         final_numa_results = self.get_vmstat_info(True, starting_numa_results)
-        print_step("EXECUTE", Fore.GREEN, "Finished! Took " + str(end_time - start_time) + "s")
+        print_step("EXECUTE", Fore.GREEN, "Finished! Took around " + str(end_time - start_time) + "s")
 
 
     # NOTE: Overwrite this if needed for each added benchmark suite!
@@ -189,6 +188,14 @@ class pmbench(benchmark):
     def __init__(self, name="Null"):
         super().__init__(name, "pmbench")
         self.name = name
+
+    def add_parameter(self, name, value):
+        if name == "threads":
+            self.parameters.append("--jobs=" + str(value))
+        elif name == "time":
+            self.parameters.append(str(value))
+        else:
+            self.parameters.append("--" + name + "=" + str(value))
 
 
 

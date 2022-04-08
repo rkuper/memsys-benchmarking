@@ -148,6 +148,6 @@ class numa_mode_compare(experiment):
                 exe_prefixes = exe_prefixes.strip()
 
                 for sample in range(general_configs["execution"]["samples"]):
-                    output_filename = benchmark.name + "_" + str(sample) + ".txt"
-                    benchmark.execute(general_configs, exe_prefixes, output_filename)
+                    output_name_order = [benchmark.name, mem_config, str(sample), ".txt"]
+                    benchmark.execute(general_configs, exe_prefixes, self.output_directory, "_".join(output_name_order))
         pass
