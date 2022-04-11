@@ -262,6 +262,7 @@ ycsb:
             database                 : "redis"
             redis-server             : "redis.host=127.0.0.1"
 
+# Parameters 'requests' and 'test-time' are mutually exclusive
 memtier:
     memtier:
         info:
@@ -272,7 +273,7 @@ memtier:
             clients              : 20
             threads              : 1
             data-size            : 500
-            requests             : 5000000
+            # requests             : 5000000
             key-maximum          : 75000000
             key-pattern          : "G:G"
             ratio                : "1:1"
@@ -281,6 +282,7 @@ memtier:
             run-count            : 1
             key-stddev           : 5125000
             print-percentiles    : "50,75,90,95,99,99.9,99.99,100"
+            test-time            : 120
 
 pmbench:
     pmbench:
@@ -291,7 +293,7 @@ pmbench:
             mapsize : 22000
             setsize : 22000
             threads : 10
-            time    : 20
+            time    : 10
 
 # cachebench:
 #     cachebench:

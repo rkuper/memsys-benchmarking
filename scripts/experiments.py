@@ -8,6 +8,7 @@ the generic experiment class
 """""""""""""""""""""""""""""""""""""""""""""""""""
 
 import os
+import shutil
 import subprocess
 import signal
 import sys
@@ -16,6 +17,9 @@ import datetime
 import argparse
 import yaml
 import numa
+import re
+import json
+from collections import Counter
 from colorama import Fore, Back, Style
 from backends import *
 from benchmarks import *
@@ -36,59 +40,67 @@ class experiment():
         self.benchmarks_pathing = {}
         self.results = {}
         self.output_directory = "Null"
-        self.operations = {"execute" : False, "process" : False, "analyze" : False}
+        self.operations = []
         experiment.overall_results[name] = {}
         if name != "Null" and (not (name in experiment.experiment_statuses)):
             experiment.experiment_statuses[name] = "Queued"
+
 
     # NOTE: Override per experiment to add custom configs to change up execute() with
     def init_config(self, config_name, config):
         errors = 0
         return errors
 
+
     # Recreate results directory if it does not exist
     def create_result_directories(self):
         relative_output_directory = os.path.join("results", self.output_directory)
-        if not os.path.exists(relative_output_directory):
-            os.mkdir(relative_output_directory)
-            for benchmark in self.benchmarks_pathing:
-                os.mkdir(os.path.join(relative_output_directory, benchmark))
-                for sub_benchmark in self.benchmarks_pathing[benchmark]:
-                    os.mkdir(os.path.join(relative_output_directory, benchmark, sub_benchmark))
-        else:
-            for benchmark in self.benchmarks_pathing:
-                if not os.path.exists(os.path.join(relative_output_directory,benchmark)):
-                    os.mkdir(os.path.join(relative_output_directory, benchmark))
-                    for sub_benchmark in self.benchmarks_pathing[benchmark]:
-                        os.mkdir(os.path.join(relative_output_directory, benchmark, sub_benchmark))
-                else:
-                    for sub_benchmark in self.benchmarks_pathing[benchmark]:
-                        if not os.path.exists(os.path.join(relative_output_directory, benchmark, sub_benchmark)):
-                            os.mkdir(os.path.join(relative_output_directory, benchmark, sub_benchmark))
-        pass
+        if os.path.exists(relative_output_directory):
+            shutil.rmtree(relative_output_directory)
+        os.mkdir(relative_output_directory)
+        for benchmark in self.benchmarks_pathing:
+            os.mkdir(os.path.join(relative_output_directory, benchmark))
+            for sub_benchmark in self.benchmarks_pathing[benchmark]:
+                os.mkdir(os.path.join(relative_output_directory, benchmark, sub_benchmark))
+                os.mkdir(os.path.join(relative_output_directory, benchmark, sub_benchmark, "raw"))
+
+
+    def change_pcm_output_csv_files(self, general_configs, name):
+        general_path_name = os.path.join(general_configs["paths"]["script-root"], \
+                                         general_configs["paths"]["results-directory"], name)
+        for exe_prefix in general_configs["exe-prefixes"]:
+            if "pcm" in exe_prefix:
+                new_exe_pcm_prefix = general_configs["exe-prefixes"][exe_prefix].split(" ")
+                for parameter_index in range(len(new_exe_pcm_prefix)):
+                    if "csv" in new_exe_pcm_prefix[parameter_index]:
+                        new_exe_pcm_prefix[parameter_index] = "-csv=" + general_path_name + "-" + exe_prefix + ".csv"
+                general_configs["exe-prefixes"][exe_prefix] = " ".join(new_exe_pcm_prefix)
+
 
     # NOTE: Override to define how to run your experiment
     def execute(self, general_configs):
+        exe_prefixes_before = general_configs["exe-prefixes"].copy()
         for benchmark in self.benchmarks:
-            for sample in range(general_configs["execution"]["samples"]):
-
-                # Set up execution prefixes based on default values in general configs (can be overriden)
-                exe_prefixes = ""
-                for exe_prefix in general_configs["exe-prefixes"]:
-                    if exe_prefix == "numa":
-                        cpu_node = str(general_configs["execution"]["cpu-numa-node"])
-                        mem_node = str(general_configs["execution"]["mem-numa-node"])
-                        exe_prefixes += " " + general_configs["exe-prefixes"][exe_prefix].replace("{1}", cpu_node).replace("{2}", mem_node)
-                    else:
-                        exe_prefixes += " " + general_configs["exe-prefixes"][exe_prefix]
-                exe_prefixes = exe_prefixes.strip()
-
-                output_filename = benchmark.name + "_" + str(sample) + ".txt"
-                benchmark.execute(general_configs, exe_prefixes, output_filename)
+            for sample in range(general_configs["script-settings"]["samples"]):
+                output_name_order = [benchmark.name, str(sample) + ".txt"]
+                benchmark.active_output_file = os.path.join(self.output_directory, benchmark.suite, \
+                    benchmark.name, "raw", "-".join(output_name_order))
+                self.change_pcm_output_csv_files(general_configs, benchmark.active_output_file)
+                benchmark.execute_wrapper(general_configs)
+        general_configs["exe-prefixes"] = exe_prefixes_before
         pass
 
-    def process(self):
+
+    # NOTE: Override to define how to process your experiment
+    def process(self, general_configs):
+        for benchmark in self.benchmarks:
+            benchmark.active_output_file = os.path.join(general_configs["paths"]["results-directory"], \
+                self.output_directory, benchmark.suite, benchmark.name, "raw", benchmark.name)
+            benchmark.completed_output_file = os.path.join(general_configs["paths"]["results-directory"],
+                self.output_directory, benchmark.suite, benchmark.name, benchmark.name + ".json")
+            benchmark.process_wrapper(general_configs)
         pass
+
 
     def analyze(self):
         pass
@@ -124,30 +136,49 @@ class numa_mode_compare(experiment):
             self.mem_configs = config
         return errors
 
+
     def execute(self, general_configs):
+        # Save the exe-prefixes: overwritten later for paths and different numa nodes
+        exe_prefixes_before = general_configs["exe-prefixes"].copy()
+        # Go over all benchmarks
         for benchmark in self.benchmarks:
             for mem_config in self.mem_configs:
 
                 # Set up execution prefixes based on default values in general configs (can be overriden)
-                exe_prefixes = ""
-                for exe_prefix in general_configs["exe-prefixes"]:
-                    if exe_prefix == "numa":
-                        if mem_config == "local":
-                            cpu_node = str(self.big_cpu_node)
-                            mem_node = str(self.big_mem_node)
-                        elif mem_config == "remote":
-                            cpu_node = str(self.small_cpu_node)
-                            mem_node = str(self.big_mem_node)
-                        else:
-                            cpu_node = str(self.small_cpu_node)
-                            mem_node = str(self.small_mem_node) + "," + str(self.big_mem_node)
 
-                        exe_prefixes += " " + general_configs["exe-prefixes"][exe_prefix].replace("{1}", cpu_node).replace("{2}", mem_node)
+                if "numa" in general_configs["exe-prefixes"]:
+                    if mem_config == "local":
+                        cpu_node = str(self.big_cpu_node)
+                        mem_node = str(self.big_mem_node)
+                    elif mem_config == "remote":
+                        cpu_node = str(self.small_cpu_node)
+                        mem_node = str(self.big_mem_node)
                     else:
-                        exe_prefixes += " " + general_configs["exe-prefixes"][exe_prefix]
-                exe_prefixes = exe_prefixes.strip()
+                        cpu_node = str(self.small_cpu_node)
+                        mem_node = str(self.small_mem_node) + "," + str(self.big_mem_node)
+                general_configs["exe-prefixes"]["numa"] = "sudo numactl --cpunodebind=" + str(cpu_node) + \
+                        " --membind=" + str(mem_node)
 
-                for sample in range(general_configs["execution"]["samples"]):
-                    output_name_order = [benchmark.name, mem_config, str(sample), ".txt"]
-                    benchmark.execute(general_configs, exe_prefixes, self.output_directory, "_".join(output_name_order))
+                # Per benchmark, run 'sample' nmumber of the same benchmark to take an average of the results
+                for sample in range(general_configs["script-settings"]["samples"]):
+                    output_name_order = "-".join([benchmark.name, mem_config, str(sample)])
+                    benchmark.active_output_file = os.path.join(self.output_directory, \
+                        benchmark.suite, benchmark.name, "raw", output_name_order)
+                    self.change_pcm_output_csv_files(general_configs, benchmark.active_output_file)
+                    benchmark.execute_wrapper(general_configs)
+
+        # Restore the default exe-prefixes since they were modified
+        general_configs["exe-prefixes"] = exe_prefixes_before
+        pass
+
+
+    def process(self, general_configs):
+        for benchmark in self.benchmarks:
+            for mem_config in self.mem_configs:
+                output_name_order = [benchmark.name, mem_config]
+                benchmark.active_glob = os.path.join(general_configs["paths"]["results-directory"], \
+                    self.output_directory, benchmark.suite, benchmark.name, "raw", "-".join(output_name_order))
+                benchmark.completed_output_file = os.path.join(general_configs["paths"]["results-directory"], \
+                    self.output_directory, benchmark.suite, benchmark.name, benchmark.name + "-" + mem_config + ".json")
+                benchmark.process_wrapper(general_configs)
         pass

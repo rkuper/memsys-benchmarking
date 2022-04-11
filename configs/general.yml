@@ -7,17 +7,18 @@
 # "numa-config" contains info for the defaulted NUMA nodes (remote is meant to contain far
 #     less memory than local).
 script-settings:
-    status-update-interval : 20
+    status-update-interval : 10     # Time to wait before updating user when running benchmarks (1sec for polling)
+    samples                : 2      # Number of times to run and average each benchmark
 exe-prefixes:
     # vtune                  : "sudo /opt/intel/oneapi/vtune/2022.1.0/bin64/vtune -collect performance-snapshot "
     # uprof                  : "sudo /opt/AMDuProf_3.5-671/bin/AMDuProfCLI collect -o ./uprof-out "
-    pcm                    : "sudo pcm --external_program sudo pcm-memory --external_program"
-    numa                   : "sudo numactl --cpunodebind={1} --membind={2}"
+    pcm                    : "sudo pcm -csv=temp-pcm.csv --external_program"
+    pcm-memory             : "sudo pcm-memory -csv=temp-pcm-memory.csv --external_program"
+    numa                   : "sudo numactl --cpunodebind=0 --membind=0" # Overwrite nodes if desired in experiments.execute(...)
 execution:
-    cpu-numa-node          : 0
-    mem-numa-node          : 0
-    samples                : 2
 paths:
-    script-root            : "Null - overwritten in script for current working directory :)"
-    redis-directory        : "./tools/redis/src"
-    results-directory      : "./results"
+    script-root            : "Null" # Overwritten in script for current working directory
+    redis-directory        : "tools/redis/src"
+    results-directory      : "results"
+experiments:                        # List of experiments to run
+  - numa_mode_compare

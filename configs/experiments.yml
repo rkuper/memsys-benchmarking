@@ -1,21 +1,21 @@
 # Experiment definitiosn below containing general information on what operations to do
 numa_mode_compare:
     paths:
-        output-directory       : "numa_node_compare"
+        output-directory       : "numa_mode_compare" # If this path is not there, default directory is experiment name
     operations:
-        execute                : true
-        process                : false
-        analyze                : false
-    numa-node-configs:
-        small-cpu-node         : 1
-        small-mem-node         : 1
-        big-cpu-node           : 0
-        big-mem-node           : 0
+        # - execute
+        - process
+        # - analyze
+    numa-node-configs:                   # Used to set up different numa locality configurations
+        small-cpu-node         : 1       # NUMA node with low memory capacity
+        small-mem-node         : 1       # NUMA node with low memory capacity
+        big-cpu-node           : 0       # NUMA node with high memory capacity
+        big-mem-node           : 0       # NUMA node with high memory capacity
     numa-mem-configs:
-        - local
-        - remote
-        - both
-    benchmarks:
+        - local                          # All memory allocated on the same memory and CPU NUMA node
+        - remote                         # All memory allocated on different CPU and memory NUMA nodes
+        - both                           # Memory allocated first on same small CPU NUMA node, then on big memory node
+    benchmarks:                          # Benchmarks to run
         # - tailbench
         # - ycsb
         # - memtier

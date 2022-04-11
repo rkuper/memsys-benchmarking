@@ -16,7 +16,9 @@ import datetime
 import argparse
 import yaml
 import numa
-import inspect
+import re
+import json
+from collections import Counter
 from colorama import Fore, Back, Style
 sys.path.insert(0, 'scripts')
 from backends import *
@@ -30,11 +32,16 @@ Parse the YAML configurations to make sure they make sense
 """
 def parse_general_yml(configs):
     parse_errors = 0
-    for general in configs:
+    for general in configs["general"]:
         if general == "paths":
-            configs[general]["script-root"] = os.getcwd()
-            if "redis-directory" in configs[general]:
-                configs[general]["redis-directory"] = os.getcwd() + configs[general]["redis-directory"]
+            configs["general"][general]["script-root"] = os.getcwd()
+            if "redis-directory" in configs["general"][general]:
+                configs["general"][general]["redis-directory"] = os.getcwd() + \
+                    configs["general"][general]["redis-directory"]
+            if general == "experiments":
+                for experiment in configs["general"][general]:
+                    if experiment not in configs["experiments"]:
+                        print_error("Could not find experiment, " + experiment); parse_errors += 1
     return parse_errors
 
 def parse_experiment_yml(configs):
@@ -155,6 +162,10 @@ def build_experiments(configs):
     errors = 0
     for experiment_name in configs["experiments"]:
 
+        # Make sure experiment should be tested
+        if experiment_name not in configs["general"]["experiments"]:
+            continue
+
         # Step 1. Create needed benchmark type dynamically based on name
         if globals().get(experiment_name) is not None:
             experiment_i = globals().get(experiment_name)(experiment_name)
@@ -162,27 +173,40 @@ def build_experiments(configs):
             print_error("Could not find experiment, " + experiment.name + ", in the experiments YAML file")
             return experiments, (errors+1)
 
-        # Step 2. Add experiment's configurations from the configuration yml file
+        # Step 2a. Add experiment's result's output path first since it's needed later in step 2b
+        if "paths" not in configs["experiments"][experiment_name]:
+            experiment_i.output_directory = experiment_name
+        else:
+            experiment_i.output_directory = configs["experiments"][experiment_name]["paths"]["output-directory"]
+
+        # Step 2b. Add experiment's configurations from the configuration yml file
         for config in configs["experiments"][experiment_name]:
-            if config == "paths":
-                experiment_i.output_directory = configs["experiments"][experiment_name][config]["output-directory"]
-            elif config == "benchmarks":
+            if config == "benchmarks":
                 # Step 3.  Add built benchmarks to experiment
                 benchmarks, benchmarks_pathing = build_benchmarks(configs["benchmarks"], \
                                                 configs["experiments"][experiment_name]["benchmarks"])
                 experiment_i.benchmarks = benchmarks
                 experiment_i.benchmarks_pathing = benchmarks_pathing
+
+                # Default active output file just in case an experiment forgot to make one
+                # also add suite and benchmark dictionary result entries to the experiment for processing
+                for benchmark in benchmarks:
+                    benchmark.active_output_file = os.path.join(experiment_i.output_directory,
+                        benchmark.suite, benchmark.name, "raw", benchmark.name + "-0.txt")
+                    if benchmark.suite not in experiment_i.results: experiment_i.results[benchmark.suite] = {}
+                    experiment_i.results[benchmark.suite][benchmark.name] = {}
             elif config == "operations":
-                for operation in configs["experiments"][experiment_name][config]:
-                    experiment_i.operations[operation] = configs["experiments"][experiment_name][config][operation]
+                experiment_i.operations = configs["experiments"][experiment_name][config]
             else:
                 errors = experiment_i.init_config(config, configs["experiments"][experiment_name][config])
                 if errors > 0:
                     print_error("Found error(s) in experiment, " + experiment.name + ", configurations")
                     return experiments, errors
 
-        # Append experiment to the list of experiments to return
-        experiment_i.create_result_directories()
+        if "execute" in experiment_i.operations:
+            experiment_i.create_result_directories()
+
+        # Step 4. Append experiment to the list of experiments to return
         experiments.append(experiment_i)
     return experiments, errors
 
@@ -195,11 +219,11 @@ Execute, process, and/or analyze each benchmark based on the set configs in the 
 def operate_experiments(general_configs, experiments):
     for experiment in experiments:
         for operation in experiment.operations:
-            if operation == "execute" and experiment.operations[operation]:
+            if operation == "execute":
                 experiment.execute(general_configs)
-            if operation == "process" and experiment.operations[operation]:
+            elif operation == "process":
                 experiment.process(general_configs)
-            if operation == "analyze" and experiment.operations[operation]:
+            elif operation == "analyze":
                 experiment.analyze(general_configs)
     return
 
