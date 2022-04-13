@@ -16,6 +16,7 @@ import argparse
 import yaml
 import numa
 import json
+from collections import Counter
 from colorama import Fore, Back, Style
 
 
@@ -80,11 +81,13 @@ def flatten_dict(pyobj, keystring=''):
     else:
         yield keystring, pyobj
 
+
 def nest_dict(dict1):
     result = {}
     for k, v in dict1.items():
         split_rec(k, v, result)
     return result
+
 
 def split_rec(k, v, out):
     k, *rest = k.split('_', 1)
@@ -92,6 +95,23 @@ def split_rec(k, v, out):
         split_rec(rest[0], v, out.setdefault(k, {}))
     else:
         out[k] = v
+
+
+def average_dicts(processed_data):
+    # Flatten the data processed from each sample
+    flattened_processed_data = []
+    for data in processed_data:
+        flattened_processed_data.append({ k:v for k,v in flatten_dict(processed_data[data]) })
+
+    # Average the data found in each sample (from flattened dictionaries)
+    sums = Counter()
+    counters = Counter()
+    for itemset in flattened_processed_data:
+        sums.update(itemset)
+        counters.update(itemset.keys())
+
+    # Covert the flattened data to nested dictionaries and dump the data to the proper results directory
+    return nest_dict({x: round(float(sums[x])/counters[x], 2) for x in sums.keys()})
 
 
 

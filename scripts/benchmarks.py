@@ -65,24 +65,35 @@ class benchmark:
         return vmstat_values
 
 
-    def execute(self, general_configs):
-        cmd = " ".join(general_configs["exe-prefixes"].values())
-        cmd += " ./" + self.info["executable"]
-        cmd += " " + " ".join(self.parameters)
+    def change_pcm_output_csv_files(self, general_configs, name):
+        root_to_glob = os.path.join(general_configs["paths"]["script-root"], general_configs["paths"]["results-directory"], name)
+        for exe_prefix in general_configs["exe-prefixes"]:
+            if "pcm" in exe_prefix:
+                new_exe_pcm_prefix = general_configs["exe-prefixes"][exe_prefix].split(" ")
+                for parameter_index in range(len(new_exe_pcm_prefix)):
+                    if "csv" in new_exe_pcm_prefix[parameter_index]:
+                        new_exe_pcm_prefix[parameter_index] = "-csv=" + root_to_glob + "-" + exe_prefix + ".csv"
+                general_configs["exe-prefixes"][exe_prefix] = " ".join(new_exe_pcm_prefix)
+
+
+    def execute(self, general_configs, sample, start_str_order=[]):
+        if len(start_str_order) == 0:
+            start_str_order=["Suite=" + self.suite, "Benchmark=" + self.name, \
+                    "Sample=" + str(sample), "\nCommand: " + self.active_cmd]
+        print(); print_step("EXECUTE - START", Fore.GREEN, " ".join(start_str_order))
         if not os.path.exists(self.info["path"]):
             print_error("Could not find path to benchmark's executable"); return
 
-        print()
-        print_step("EXECUTE - START", Fore.GREEN, "Suite=" + self.suite + " Benchmark=" + self.name)
-        print("Command: " + cmd)
+        # Set up timer, outputs, and starting data before running
+        output_file = os.path.join(general_configs["paths"]["results-directory"], self.active_name + ".txt")
+        output_fp = open(output_file, 'w')
         starting_numa_results = self.get_vmstat_info()
         start_time = time.time()
 
-        output_location = os.path.join(general_configs["paths"]["results-directory"], self.active_output_file + ".txt")
-        output_fp = open(output_location, 'w')
+        # RUN!
         try:
             update = time_counter = 0
-            active_benchmark = subprocess.Popen(cmd, cwd=self.info["path"], \
+            active_benchmark = subprocess.Popen(self.active_cmd, cwd=self.info["path"], \
                 stdout=output_fp, shell=True, stderr=subprocess.DEVNULL)
             while active_benchmark.poll() is None:
                 time.sleep(1)
@@ -99,23 +110,29 @@ class benchmark:
             except:
                 pass
 
+        # End and capture data results
         end_time = time.time()
         final_numa_results = self.get_vmstat_info(True, starting_numa_results)
         for parameter in final_numa_results:
             output_fp.write(parameter + " = " + str(final_numa_results[parameter]) + "\n")
         output_fp.close()
-
         print_step("EXECUTE - FINISH", Fore.GREEN, "Time taken (nearest second): " + str(end_time - start_time) + "s")
 
 
     # NOTE: Overwrite this if needed for each added benchmark suite!
     def execute_wrapper(self, general_configs):
-        self.execute(general_configs)
+        for sample in range(general_configs["script-settings"]["samples"]):
+            # Set active name, PCM file outputs, and command, then run!
+            self.active_name = self.active_glob + "-" + str(sample)
+            self.change_pcm_output_csv_files(general_configs, self.active_name)
+            cmd_order = [" ".join(general_configs["exe-prefixes"].values()), \
+                        "./" + self.info["executable"], \
+                        " ".join(self.parameters)]
+            self.active_cmd = " ".join(cmd_order)
+            self.execute(general_configs, sample)
 
 
     def process_pcm(self, general_configs, sample, data):
-        print_step("PROCESS", Fore.MAGENTA, self.suite + " - " + self.name + " - " + str(sample) + ": Processing PCM data")
-
         process_errors = 0
         pcm_files = []
         for exe_prefix in general_configs["exe-prefixes"]:
@@ -124,7 +141,7 @@ class benchmark:
         try:
             for pcm_file in pcm_files:
                 if not os.path.exists(pcm_file):
-                    print_error("PCM CSV file was not found to parse"); process_errors += 1; break
+                    print_error("PCM CSV file, " + pcm_file + ", was not found to parse"); process_errors += 1; break
                 with open(pcm_file, mode='r') as file:
                     lines = []
                     for line in file:
@@ -189,7 +206,6 @@ class benchmark:
 
 
     def process_vmstat(self, general_configs, sample, data):
-        print_step("PROCESS", Fore.MAGENTA, self.suite + " - " + self.name + " - " + str(sample) + ": Processing VMStat NUMA data")
         with open(self.active_glob + "-" + str(sample) + ".txt", "r") as fp:
             for line in fp:
                 for vmstat_metric in benchmark.vmstat_metrics:
@@ -203,53 +219,47 @@ class benchmark:
         print_warning("This benchmark has no specific benchmark results!")
 
 
-    def process(self, general_configs, sample, data):
-            self.process_pcm(general_configs, sample, data["general"])
-            self.process_vmstat(general_configs, sample, data["general"])
-            self.process_specific(general_configs, sample, data["specific"])
+    def process_all_monitors(self, general_configs, sample, data):
+        self.process_pcm(general_configs, sample, data["general"])
+        self.process_vmstat(general_configs, sample, data["general"])
+        self.process_specific(general_configs, sample, data["specific"])
 
 
+
+    def process(self, general_configs, processed_data, sample, process_str_order=[]):
+        if len(process_str_order) == 0:
+            process_str_order=["Suite=" + self.suite, "Benchmark=" + self.name, "Sample=" + str(sample)]
+        print_step("PROCESS", Fore.MAGENTA, " ".join(process_str_order) + " : Processing all data")
+        data = {}
+        data["specific"] = {}
+        data["general"] = {}
+        data["general"]["System"] = {}
+        data["general"]["System"]["Sockets"] = {}
+        num_sockets = int(subprocess.check_output('cat /proc/cpuinfo | grep "physical id" | sort -u | wc -l', shell=True))
+        for socket in range(num_sockets):
+            data["general"]["System"]["Sockets"]["Socket " + str(socket)] = {}
+            data["general"]["System"]["Sockets"]["Socket " + str(socket)]["Cores"] = {}
+            data["general"]["System"]["Sockets"]["Socket " + str(socket)]["Channels"] = {}
+            data["general"]["System"]["Sockets"]["Socket " + str(socket)]["iMCs"] = {}
+        self.process_all_monitors(general_configs, sample, data)
+        sampled_file = open(self.active_glob + "-" + str(sample) + ".json", "w")
+        json.dump(data, sampled_file, indent=4)
+        sampled_file.close()
+        processed_data[str(sample)] = data
+
+
+    # NOTE: Overwrite this if needed for each added benchmark suite!
     def process_wrapper(self, general_configs):
-        complete_data = {}
+        processed_data = {}
         for sample in range(general_configs["script-settings"]["samples"]):
-            data = {}
-            data["specific"] = {}
-            data["general"] = {}
-            data["general"]["System"] = {}
-            data["general"]["System"]["Sockets"] = {}
-            num_sockets = int(subprocess.check_output('cat /proc/cpuinfo | grep "physical id" | sort -u | wc -l', shell=True))
-            for socket in range(num_sockets):
-                data["general"]["System"]["Sockets"]["Socket " + str(socket)] = {}
-                data["general"]["System"]["Sockets"]["Socket " + str(socket)]["Cores"] = {}
-                data["general"]["System"]["Sockets"]["Socket " + str(socket)]["Channels"] = {}
-                data["general"]["System"]["Sockets"]["Socket " + str(socket)]["iMCs"] = {}
-
-            self.process(general_configs, sample, data)
-
-            sampled_file = open(self.active_glob + "-" + str(sample) + ".json", "w")
-            json.dump(data, sampled_file, indent=4)
-            sampled_file.close()
-            complete_data[str(sample)] = data
+            self.process(general_configs, processed_data, sample)
 
         # Flatten the data processed from each sample
-        flattened_complete_data = []
-        for data in complete_data:
-            flattened_complete_data.append({ k:v for k,v in flatten_dict(complete_data[data]) })
+        processed_data = average_dicts(processed_data)
+        return processed_data
 
-        # Average the data found in each sample (from flattened dictionaries)
-        sums = Counter()
-        counters = Counter()
-        for itemset in flattened_complete_data:
-            sums.update(itemset)
-            counters.update(itemset.keys())
 
-        # Covert the flattened data to nested dictionaries and dump the data to the proper results directory
-        # complete_data = nest_dict({x: round(float(sums[x])/counters[x], 2) for x in sums.keys()})
-        # complete_file = open(self.completed_output_file, "w")
-        # json.dump(complete_data, complete_file, indent=4)
-        # complete_file.close()
-        return nest_dict({x: round(float(sums[x])/counters[x], 2) for x in sums.keys()})
-        # self.results = complete_data
+
 
 
 
@@ -278,13 +288,21 @@ class ycsb(benchmark):
         self.parameters.append("-p " + name + "=" + str(value))
 
     def execute_wrapper(self, general_configs):
-        if manage_redis(general_configs, "start") > 0:
-            print_error("Could not start redis-server"); return
-        self.execute(general_configs)
-        if manage_redis(general_configs, "end") > 0:
-            print_error("Could not kill redis-server"); return
+        for sample in range(general_configs["script-settings"]["samples"]):
+            if manage_redis(general_configs, "start") > 0:
+                print_error("Could not start redis-server"); return
 
+            # Set active name, PCM file outputs, and command, then run!
+            self.active_name = self.active_glob + "-" + str(sample)
+            self.change_pcm_output_csv_files(general_configs, self.active_name)
+            cmd_order = [" ".join(general_configs["exe-prefixes"].values()), \
+                        "./" + self.info["executable"], \
+                        " ".join(self.parameters)]
+            self.active_cmd = " ".join(cmd_order)
+            self.execute(general_configs, sample)
 
+            if manage_redis(general_configs, "end") > 0:
+                print_error("Could not kill redis-server"); return
 
 
 class memtier(benchmark):
@@ -297,12 +315,21 @@ class memtier(benchmark):
         else: self.parameters.append("--" + name + "=" + str(value))
 
     def execute_wrapper(self, general_configs):
-        if manage_redis(general_configs, "start") > 0:
-            print_error("Could not start redis-server"); return
-        self.execute(general_configs)
-        if manage_redis(general_configs, "end") > 0:
-            print_error("Could not kill redis-server"); return
+        for sample in range(general_configs["script-settings"]["samples"]):
+            if manage_redis(general_configs, "start") > 0:
+                print_error("Could not start redis-server"); return
 
+            # Set active name, PCM file outputs, and command, then run!
+            self.active_name = self.active_glob + "-" + str(sample)
+            self.change_pcm_output_csv_files(general_configs, self.active_name)
+            cmd_order = [" ".join(general_configs["exe-prefixes"].values()), \
+                        "./" + self.info["executable"], \
+                        " ".join(self.parameters)]
+            self.active_cmd = " ".join(cmd_order)
+            self.execute(general_configs, sample)
+
+            if manage_redis(general_configs, "end") > 0:
+                print_error("Could not kill redis-server"); return
 
 
 class pmbench(benchmark):

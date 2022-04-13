@@ -194,8 +194,8 @@ def build_experiments(configs):
                 # also add suite and benchmark dictionary result entries to the experiment for processing
                 for benchmark_suite in benchmark_suites:
                     for benchmark in benchmark_suites[benchmark_suite]:
-                        benchmark.active_output_file = os.path.join(experiment_i.output_directory,
-                                benchmark.suite, benchmark.name, "raw", benchmark.name + "-0.txt")
+                        benchmark.active_glob = os.path.join(experiment_i.output_directory,
+                                benchmark.suite, benchmark.name, "raw", benchmark.name)
                         if benchmark.suite not in experiment_i.results: experiment_i.results[benchmark.suite] = {}
                         experiment_i.results[benchmark.suite][benchmark.name] = {}
             elif config == "operations":

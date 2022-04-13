@@ -146,7 +146,7 @@ ycsb:
             updateproportion         : 0.5
             scanproportion           : 0
             insertproportion         : 0
-            recordcountload          : 3250000
+            recordcountload          : 4000000
             operationcountload       : 15000000
             recordcountrun           : 1000000
             operationcountrun        : 7500000
@@ -293,7 +293,7 @@ pmbench:
             mapsize : 22000
             setsize : 22000
             threads : 10
-            time    : 10
+            time    : 150
 
 # cachebench:
 #     cachebench:

@@ -8,7 +8,7 @@
 #     less memory than local).
 script-settings:
     status-update-interval : 10     # Time to wait before updating user when running benchmarks (1sec for polling)
-    samples                : 2      # Number of times to run and average each benchmark
+    samples                : 2      # Number of times to run and average each benchmark (managed in benchmark class)
 exe-prefixes:
     # vtune                  : "sudo /opt/intel/oneapi/vtune/2022.1.0/bin64/vtune -collect performance-snapshot "
     # uprof                  : "sudo /opt/AMDuProf_3.5-671/bin/AMDuProfCLI collect -o ./uprof-out "

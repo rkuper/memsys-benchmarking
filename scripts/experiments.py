@@ -65,26 +65,11 @@ class experiment():
                 os.mkdir(os.path.join(relative_output_directory, benchmark, sub_benchmark, "raw"))
 
 
-    def change_pcm_output_csv_files(self, general_configs, name):
-        general_path_name = os.path.join(general_configs["paths"]["script-root"], \
-                                         general_configs["paths"]["results-directory"], name)
-        for exe_prefix in general_configs["exe-prefixes"]:
-            if "pcm" in exe_prefix:
-                new_exe_pcm_prefix = general_configs["exe-prefixes"][exe_prefix].split(" ")
-                for parameter_index in range(len(new_exe_pcm_prefix)):
-                    if "csv" in new_exe_pcm_prefix[parameter_index]:
-                        new_exe_pcm_prefix[parameter_index] = "-csv=" + general_path_name + "-" + exe_prefix + ".csv"
-                general_configs["exe-prefixes"][exe_prefix] = " ".join(new_exe_pcm_prefix)
-
-
     # NOTE: Override to define how to run your experiment
     def execute(self, general_configs, benchmark):
-        for sample in range(general_configs["script-settings"]["samples"]):
-            output_name_order = [benchmark.name, str(sample) + ".txt"]
-            benchmark.active_output_file = os.path.join(self.output_directory, benchmark.suite, \
-                benchmark.name, "raw", "-".join(output_name_order))
-            self.change_pcm_output_csv_files(general_configs, benchmark.active_output_file)
-            benchmark.execute_wrapper(general_configs)
+        benchmark.active_glob = os.path.join(general_configs["paths"]["results-directory"], \
+            self.output_directory, benchmark.suite, benchmark.name, "raw", benchmark.name)
+        benchmark.execute_wrapper(general_configs)
 
 
     def execute_wrapper(self, general_configs):
@@ -171,18 +156,15 @@ class numa_mode_compare(experiment):
             general_configs["exe-prefixes"]["numa"] = "sudo numactl --cpunodebind=" + str(cpu_node) + \
                     " --membind=" + str(mem_node)
 
-            # Per benchmark, run 'sample' nmumber of the same benchmark to take an average of the results
-            for sample in range(general_configs["script-settings"]["samples"]):
-                output_name_order = "-".join([benchmark.name, mem_config, str(sample)])
-                benchmark.active_output_file = os.path.join(self.output_directory, \
-                    benchmark.suite, benchmark.name, "raw", output_name_order)
-                self.change_pcm_output_csv_files(general_configs, benchmark.active_output_file)
-                benchmark.execute_wrapper(general_configs)
+            output_glob_order = "-".join([benchmark.name, mem_config])
+            benchmark.active_glob = os.path.join(self.output_directory, \
+                    benchmark.suite, benchmark.name, "raw", output_glob_order)
+            benchmark.execute_wrapper(general_configs)
 
 
     def process(self, general_configs, complete_results, benchmark):
         for mem_config in self.mem_configs:
-            output_name_order = [benchmark.name, mem_config]
+            output_glob_order = [benchmark.name, mem_config]
             benchmark.active_glob = os.path.join(general_configs["paths"]["results-directory"], \
-                self.output_directory, benchmark.suite, benchmark.name, "raw", "-".join(output_name_order))
+                self.output_directory, benchmark.suite, benchmark.name, "raw", "-".join(output_glob_order))
             complete_results[benchmark.suite][benchmark.name][mem_config] = benchmark.process_wrapper(general_configs)
