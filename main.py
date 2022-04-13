@@ -113,39 +113,41 @@ Per benchmark:
     3. Append benchmark object list with that object
 """
 def build_benchmarks(benchmark_configs, experiment_benchmarks):
-    benchmarks = []
+    benchmark_suites = {}
     benchmarks_pathing = {}
 
-    for benchmark in benchmark_configs:
+    for benchmark_suite in benchmark_configs:
 
         # Skip overrides
-        if benchmark == "overrides" or not (benchmark in experiment_benchmarks):
+        if benchmark_suite == "overrides" or not (benchmark_suite in experiment_benchmarks):
             continue
-        benchmarks_pathing[benchmark] = []
+
+        benchmarks_pathing[benchmark_suite] = []
+        benchmark_suites[benchmark_suite] = []
 
         # Begin building objects
-        for sub_benchmark in benchmark_configs[benchmark]:
+        for benchmark in benchmark_configs[benchmark_suite]:
 
             # Step 1. Create needed benchmark type dynamically based on name
-            if globals().get(benchmark) is not None:
-                benchmark_i = globals().get(benchmark)(sub_benchmark)
+            if globals().get(benchmark_suite) is not None:
+                benchmark_i = globals().get(benchmark_suite)(benchmark)
             else:
-                print_warning("Defaulting benchmark " + str(benchmark))
-                benchmark_i = benchmark(sub_benchmark)
+                print_warning("Defaulting benchmark suite" + str(benchmark_suite))
+                benchmark_i = benchmark(benchmark)
 
             # Step 2: Add benchmark information and parameters to benchmark object
-            for info in benchmark_configs[benchmark][sub_benchmark]["info"]:
-                benchmark_i.add_info(info, benchmark_configs[benchmark][sub_benchmark]["info"][info])
-            for parameter in benchmark_configs[benchmark][sub_benchmark]["parameters"]:
+            for info in benchmark_configs[benchmark_suite][benchmark]["info"]:
+                benchmark_i.add_info(info, benchmark_configs[benchmark_suite][benchmark]["info"][info])
+            for parameter in benchmark_configs[benchmark_suite][benchmark]["parameters"]:
                 if parameter in benchmark_configs["overrides"]:
                     benchmark_i.add_parameter(parameter, benchmark_configs["overrides"][parameter])
                 else:
-                    benchmark_i.add_parameter(parameter, benchmark_configs[benchmark][sub_benchmark]["parameters"][parameter])
+                    benchmark_i.add_parameter(parameter, benchmark_configs[benchmark_suite][benchmark]["parameters"][parameter])
 
             # Append benchmark to benchmark list
-            benchmarks_pathing[benchmark].append(sub_benchmark)
-            benchmarks.append(benchmark_i)
-    return benchmarks, benchmarks_pathing
+            benchmarks_pathing[benchmark_suite].append(benchmark)
+            benchmark_suites[benchmark_suite].append(benchmark_i)
+    return benchmark_suites, benchmarks_pathing
 
 
 
@@ -183,18 +185,19 @@ def build_experiments(configs):
         for config in configs["experiments"][experiment_name]:
             if config == "benchmarks":
                 # Step 3.  Add built benchmarks to experiment
-                benchmarks, benchmarks_pathing = build_benchmarks(configs["benchmarks"], \
+                benchmark_suites, benchmarks_pathing = build_benchmarks(configs["benchmarks"], \
                                                 configs["experiments"][experiment_name]["benchmarks"])
-                experiment_i.benchmarks = benchmarks
+                experiment_i.benchmark_suites = benchmark_suites
                 experiment_i.benchmarks_pathing = benchmarks_pathing
 
                 # Default active output file just in case an experiment forgot to make one
                 # also add suite and benchmark dictionary result entries to the experiment for processing
-                for benchmark in benchmarks:
-                    benchmark.active_output_file = os.path.join(experiment_i.output_directory,
-                        benchmark.suite, benchmark.name, "raw", benchmark.name + "-0.txt")
-                    if benchmark.suite not in experiment_i.results: experiment_i.results[benchmark.suite] = {}
-                    experiment_i.results[benchmark.suite][benchmark.name] = {}
+                for benchmark_suite in benchmark_suites:
+                    for benchmark in benchmark_suites[benchmark_suite]:
+                        benchmark.active_output_file = os.path.join(experiment_i.output_directory,
+                                benchmark.suite, benchmark.name, "raw", benchmark.name + "-0.txt")
+                        if benchmark.suite not in experiment_i.results: experiment_i.results[benchmark.suite] = {}
+                        experiment_i.results[benchmark.suite][benchmark.name] = {}
             elif config == "operations":
                 experiment_i.operations = configs["experiments"][experiment_name][config]
             else:
@@ -220,9 +223,9 @@ def operate_experiments(general_configs, experiments):
     for experiment in experiments:
         for operation in experiment.operations:
             if operation == "execute":
-                experiment.execute(general_configs)
+                experiment.execute_wrapper(general_configs)
             elif operation == "process":
-                experiment.process(general_configs)
+                experiment.process_wrapper(general_configs)
             elif operation == "analyze":
                 experiment.analyze(general_configs)
     return

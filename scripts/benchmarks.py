@@ -18,7 +18,6 @@ import yaml
 import numa
 import re
 import json
-import pprint
 from collections import Counter
 from colorama import Fore, Back, Style
 from backends import *
@@ -245,11 +244,12 @@ class benchmark:
             counters.update(itemset.keys())
 
         # Covert the flattened data to nested dictionaries and dump the data to the proper results directory
-        complete_data = nest_dict({x: round(float(sums[x])/counters[x], 2) for x in sums.keys()})
-        complete_file = open(self.completed_output_file, "w")
-        json.dump(complete_data, complete_file, indent=4)
-        complete_file.close()
-        self.results = complete_data
+        # complete_data = nest_dict({x: round(float(sums[x])/counters[x], 2) for x in sums.keys()})
+        # complete_file = open(self.completed_output_file, "w")
+        # json.dump(complete_data, complete_file, indent=4)
+        # complete_file.close()
+        return nest_dict({x: round(float(sums[x])/counters[x], 2) for x in sums.keys()})
+        # self.results = complete_data
 
 
 

@@ -15,6 +15,7 @@ import datetime
 import argparse
 import yaml
 import numa
+import json
 from colorama import Fore, Back, Style
 
 
@@ -106,4 +107,14 @@ def print_warning(stmt):
 def print_step(step, color, stmt):
     print(color + "[" + step + "] " + Style.RESET_ALL + stmt)
 
+
+
+
+"""
+File writing helper
+"""
+def write_data(data, path):
+    complete_file = open(path, "w")
+    json.dump(data, complete_file, indent=4)
+    complete_file.close()
 
