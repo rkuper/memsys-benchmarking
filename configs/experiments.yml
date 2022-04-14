@@ -16,9 +16,29 @@ numa_mode_compare:
         - remote                         # All memory allocated on different CPU and memory NUMA nodes
         - both                           # Memory allocated first on same small CPU NUMA node, then on big memory node
     benchmarks:                          # Benchmarks to run
-        # - tailbench
-        # - ycsb
-        # - memtier
-        - pmbench
-        # - cachebench
-        # - gapbs
+        tailbench:
+            # - img-dnn-integrated
+            # - img-dnn-networked
+            # - masstree-integrated
+            # - moses-integrated
+            # - moses-networked
+            # - silo-integrated
+            # - silo-networked
+            # - specjbb-integrated
+            # - specjbb-networked
+            # - sphinx-integrated
+            # - sphinx-networked
+        ycsb:
+            - workloada
+            - workloadb
+            - workloadc
+            - workloadf
+            - workloadd
+        memtier:
+            # - memtier
+        pmbench:
+            - pmbench
+        cachebench:
+            # - cachebench
+        gapbs:
+            # - gapbs

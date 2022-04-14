@@ -146,10 +146,8 @@ ycsb:
             updateproportion         : 0.5
             scanproportion           : 0
             insertproportion         : 0
-            recordcountload          : 4000000
-            operationcountload       : 15000000
-            recordcountrun           : 1000000
-            operationcountrun        : 7500000
+            recordcount              : 4500000
+            operationcount           : 20000000
             fieldcount               : 10
             fieldlength              : 500
             requestdistribution      : "uniform"
@@ -157,7 +155,7 @@ ycsb:
             maxscanlength            : 1000
             scanlengthdistribution   : "uniform"
             hdrhistogram.percentiles : "50,75,90,95,99,99.9,99.99"
-            threadcount              : 12
+            threads                  : 12
             database                 : "redis"
             redis-server             : "redis.host=127.0.0.1"
     workloadb:
@@ -171,10 +169,8 @@ ycsb:
             updateproportion         : 0.05
             scanproportion           : 0
             insertproportion         : 0
-            recordcountload          : 3250000
-            operationcountload       : 15000000
-            recordcountrun           : 1000000
-            operationcountrun        : 7500000
+            recordcount              : 4500000
+            operationcount           : 20000000
             fieldcount               : 10
             fieldlength              : 500
             requestdistribution      : "uniform"
@@ -182,7 +178,7 @@ ycsb:
             maxscanlength            : 1000
             scanlengthdistribution   : "uniform"
             hdrhistogram.percentiles : "50,75,90,95,99,99.9,99.99"
-            threadcount              : 12
+            threads                  : 12
             database                 : "redis"
             redis-server             : "redis.host=127.0.0.1"
     workloadc:
@@ -196,10 +192,8 @@ ycsb:
             updateproportion         : 0
             scanproportion           : 0
             insertproportion         : 0
-            recordcountload          : 3250000
-            operationcountload       : 15000000
-            recordcountrun           : 1000000
-            operationcountrun        : 7500000
+            recordcount              : 4500000
+            operationcount           : 20000000
             fieldcount               : 10
             fieldlength              : 500
             requestdistribution      : "uniform"
@@ -207,7 +201,7 @@ ycsb:
             maxscanlength            : 1000
             scanlengthdistribution   : "uniform"
             hdrhistogram.percentiles : "50,75,90,95,99,99.9,99.99"
-            threadcount              : 12
+            threads                  : 12
             database                 : "redis"
             redis-server             : "redis.host=127.0.0.1"
     workloadf:
@@ -222,10 +216,8 @@ ycsb:
             scanproportion            : 0
             insertproportion          : 0
             readmodifywriteproportion : 0.5
-            recordcountload           : 3250000
-            operationcountload        : 15000000
-            recordcountrun            : 1000000
-            operationcountrun         : 7500000
+            recordcount               : 4500000
+            operationcount            : 20000000
             fieldcount                : 10
             fieldlength               : 500
             requestdistribution       : "uniform"
@@ -233,7 +225,7 @@ ycsb:
             maxscanlength             : 1000
             scanlengthdistribution    : "uniform"
             hdrhistogram.percentiles  : "50,75,90,95,99,99.9,99.99"
-            threadcount               : 12
+            threads                   : 12
             database                  : "redis"
             redis-server              : "redis.host=127.0.0.1"
     workloadd:
@@ -247,10 +239,8 @@ ycsb:
             updateproportion         : 0
             scanproportion           : 0
             insertproportion         : 0.05
-            recordcountload          : 3250000
-            operationcountload       : 15000000
-            recordcountrun           : 1000000
-            operationcountrun        : 7500000
+            recordcount              : 4500000
+            operationcount           : 20000000
             fieldcount               : 10
             fieldlength              : 500
             requestdistribution      : "uniform"
@@ -258,7 +248,7 @@ ycsb:
             maxscanlength            : 1000
             scanlengthdistribution   : "uniform"
             hdrhistogram.percentiles : "50,75,90,95,99,99.9,99.99"
-            threadcount              : 12
+            threads                  : 12
             database                 : "redis"
             redis-server             : "redis.host=127.0.0.1"
 

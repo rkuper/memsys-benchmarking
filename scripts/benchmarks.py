@@ -80,9 +80,9 @@ class benchmark:
         if len(start_str_order) == 0:
             start_str_order=["Suite=" + self.suite, "Benchmark=" + self.name, \
                     "Sample=" + str(sample), "\nCommand: " + self.active_cmd]
-        print(); print_step("EXECUTE - START", Fore.GREEN, " ".join(start_str_order))
+        print_step("EXECUTE - START", Fore.GREEN, " ".join(start_str_order))
         if not os.path.exists(self.info["path"]):
-            print_error("Could not find path to benchmark's executable"); return
+            print_error("Could not find path to benchmark's executable at: " + self.info["path"]); return
 
         # Set up timer, outputs, and starting data before running
         output_file = os.path.join(general_configs["paths"]["results-directory"], self.active_name + ".txt")
@@ -137,7 +137,7 @@ class benchmark:
         pcm_files = []
         for exe_prefix in general_configs["exe-prefixes"]:
             if "pcm" in exe_prefix and "csv" in general_configs["exe-prefixes"][exe_prefix]:
-                pcm_files.append(self.active_glob + "-" + str(sample) + "-" + exe_prefix + ".csv")
+                pcm_files.append(self.active_name + "-" + exe_prefix + ".csv")
         try:
             for pcm_file in pcm_files:
                 if not os.path.exists(pcm_file):
@@ -206,7 +206,7 @@ class benchmark:
 
 
     def process_vmstat(self, general_configs, sample, data):
-        with open(self.active_glob + "-" + str(sample) + ".txt", "r") as fp:
+        with open(self.active_name + ".txt", "r") as fp:
             for line in fp:
                 for vmstat_metric in benchmark.vmstat_metrics:
                     if vmstat_metric in line:
@@ -242,7 +242,7 @@ class benchmark:
             data["general"]["System"]["Sockets"]["Socket " + str(socket)]["Channels"] = {}
             data["general"]["System"]["Sockets"]["Socket " + str(socket)]["iMCs"] = {}
         self.process_all_monitors(general_configs, sample, data)
-        sampled_file = open(self.active_glob + "-" + str(sample) + ".json", "w")
+        sampled_file = open(self.active_name + ".json", "w")
         json.dump(data, sampled_file, indent=4)
         sampled_file.close()
         processed_data[str(sample)] = data
@@ -252,6 +252,7 @@ class benchmark:
     def process_wrapper(self, general_configs):
         processed_data = {}
         for sample in range(general_configs["script-settings"]["samples"]):
+            self.active_name = self.active_glob + "-" + str(sample)
             self.process(general_configs, processed_data, sample)
 
         # Flatten the data processed from each sample
@@ -285,24 +286,74 @@ class ycsb(benchmark):
         self.name = name
 
     def add_parameter(self, name, value):
-        self.parameters.append("-p " + name + "=" + str(value))
+        if name == "database":
+            self.parameters.insert(0, value)
+        elif "server" in name:
+            self.parameters.append("-p " + value)
+        else:
+            if name == "threads": name = "threadcount"
+            self.parameters.append("-p " + name + "=" + str(value))
 
     def execute_wrapper(self, general_configs):
         for sample in range(general_configs["script-settings"]["samples"]):
             if manage_redis(general_configs, "start") > 0:
                 print_error("Could not start redis-server"); return
 
-            # Set active name, PCM file outputs, and command, then run!
-            self.active_name = self.active_glob + "-" + str(sample)
-            self.change_pcm_output_csv_files(general_configs, self.active_name)
-            cmd_order = [" ".join(general_configs["exe-prefixes"].values()), \
-                        "./" + self.info["executable"], \
-                        " ".join(self.parameters)]
-            self.active_cmd = " ".join(cmd_order)
-            self.execute(general_configs, sample)
+            # Both modes are needed to execute: 'load' to load into the database, 'run' to execute query operations
+            for mode in ["load", "run"]:
+                # Half the operation and record counts for running the benchmark to
+                # make the benchmark run faster for that category
+                modified_parameters = self.parameters.copy()
+                if mode == "run":
+                    half_parameters = ["recordcount", "operationcount"]
+                    for parameter_index in range(len(modified_parameters)):
+                        for half_parameter in half_parameters:
+                            if half_parameter in modified_parameters[parameter_index]:
+                                modified_parameters[parameter_index] = "-p " + half_parameter + "=" + \
+                                        str(int(modified_parameters[parameter_index].split("=")[1]) // 2)
+
+                # Set active name, PCM file outputs, and command, then run!
+                self.active_name = '-'.join([self.active_glob, mode, str(sample)])
+                self.change_pcm_output_csv_files(general_configs, self.active_name)
+                cmd_order = [" ".join(general_configs["exe-prefixes"].values()), \
+                            "./" + self.info["executable"], \
+                            mode, " ".join(modified_parameters)]
+                self.active_cmd = " ".join(cmd_order)
+                start_str_order=["Suite=" + self.suite, "Benchmark=" + self.name, \
+                        "Mode=" + mode, "Sample=" + str(sample), "\nCommand: " + self.active_cmd]
+                self.execute(general_configs, sample, start_str_order)
 
             if manage_redis(general_configs, "end") > 0:
                 print_error("Could not kill redis-server"); return
+
+    def process_specific(self, general_configs, sample, data):
+        process_categories = ["OVERALL", "INSERT", "UPDATE", "READ", "UPDATE", "READ-MODIFY-WRITE"]
+        with open(self.active_name + ".txt", "r") as fp:
+            for line in fp:
+                line_splits = line.split(" ")
+                line_splits = [i for i in line_splits if i]
+                for process_category in process_categories:
+                    if process_category in line:
+                        if process_category not in data:
+                            data[process_category] = {}
+                        data[process_category][line_splits[1].replace(',', '')] = float(line_splits[2])
+
+    def process_wrapper(self, general_configs):
+        processed_data = {}
+        original_glob = self.active_glob
+        for mode in ["load", "run"]:
+            processed_data[mode] = {}
+            self.active_glob = '-'.join([original_glob, mode])
+            for sample in range(general_configs["script-settings"]["samples"]):
+                process_str_order=["Suite=" + self.suite, "Benchmark=" + self.name, "mode=" + mode, "Sample=" + str(sample)]
+                self.active_name = '-'.join([self.active_glob, str(sample)])
+                self.process(general_configs, processed_data[mode], sample, process_str_order)
+            # Flatten the data processed from each sample
+            processed_data[mode] = average_dicts(processed_data[mode])
+
+        self.active_glob = original_glob
+        return processed_data
+
 
 
 class memtier(benchmark):
@@ -332,6 +383,7 @@ class memtier(benchmark):
                 print_error("Could not kill redis-server"); return
 
 
+
 class pmbench(benchmark):
     def __init__(self, name="Null"):
         super().__init__(name, "pmbench")
@@ -346,7 +398,49 @@ class pmbench(benchmark):
             self.parameters.append("--" + name + "=" + str(value))
 
     def process_specific(self, general_configs, sample, data):
-        print_warning("This benchmark has no specific benchmark results!")
+        average_page_latency_counts = 0
+        data["average-page-latency-(us)"] = 0.0
+        data["read-access-latency-(ns)"] = {}
+        data["write-access-latency-(ns)"] = {}
+
+        process_reads = process_writes = False
+        with open(self.active_name + ".txt", "r") as fp:
+            for line in fp:
+                line_splits = line.split(" ")
+                line_splits = [i for i in line_splits if i]
+                if "Net average page latency" in line:
+                    average_page_latency_counts += 1
+                    data["average-page-latency-(us)"] = (data["average-page-latency-(us)"] + \
+                                                        float(line_splits[6])) / float(average_page_latency_counts)
+                elif "Total samples:" in line and (process_reads or process_writes):
+                    data_key = "read-access-latency-(ns)" if process_reads else "write-access-latency-(ns)"
+                    data[data_key]["samples"] = int(line_splits[2])
+                    process_reads = False
+                    process_writes = False
+
+                elif process_reads or process_writes:
+                    lower_value = 2 ** int(line_splits[0][line_splits[0].index("(")+1:line_splits[0].index(",")])
+                    upper_value = 2 ** int(line_splits[0][line_splits[0].index(",")+1:line_splits[0].index(")")])
+                    latency_key = str(lower_value) + "-" + str(upper_value)
+                    data_key = "read-access-latency-(ns)" if process_reads else "write-access-latency-(ns)"
+                    data[data_key][latency_key] = {}
+                    data[data_key][latency_key]["count"] = int(line_splits[2])
+                    if len(line_splits) > 4:
+                        data[data_key][latency_key]["historgram"] = {}
+                        histogram_low_end = lower_value
+                        difference = (upper_value - lower_value) // 16
+                        for histogram_index in range(3, len(line_splits)):
+                            histogram_key = str(histogram_low_end) + "-" + str(histogram_low_end + difference)
+                            histogram_low_end += difference
+                            histogram_value = int(''.join(i for i in line_splits[histogram_index] if i.isdigit()))
+                            data[data_key][latency_key]["historgram"][histogram_key] = histogram_value
+
+                elif "Read:" in line:
+                    process_reads = True
+
+                elif "Write:" in line:
+                    process_writes = True
+
 
 
 class cachebench(benchmark):

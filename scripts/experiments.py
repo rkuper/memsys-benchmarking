@@ -19,6 +19,7 @@ import yaml
 import numa
 import re
 import json
+from pathlib import Path
 from collections import Counter
 from colorama import Fore, Back, Style
 from backends import *
@@ -53,16 +54,20 @@ class experiment():
 
 
     # Recreate results directory if it does not exist
-    def create_result_directories(self):
+    def create_result_directories(self, retain_old_logs=False):
         relative_output_directory = os.path.join("results", self.output_directory)
-        if os.path.exists(relative_output_directory):
+        if os.path.exists(relative_output_directory) and not retain_old_logs:
             shutil.rmtree(relative_output_directory)
-        os.mkdir(relative_output_directory)
+        if not os.path.exists(relative_output_directory): os.mkdir(relative_output_directory)
         for benchmark in self.benchmarks_pathing:
-            os.mkdir(os.path.join(relative_output_directory, benchmark))
+            if self.benchmarks_pathing[benchmark] == []: continue
+            relative_benchmark_directory = os.path.join(relative_output_directory, benchmark)
+            if not os.path.exists(relative_benchmark_directory): os.mkdir(relative_benchmark_directory)
             for sub_benchmark in self.benchmarks_pathing[benchmark]:
-                os.mkdir(os.path.join(relative_output_directory, benchmark, sub_benchmark))
-                os.mkdir(os.path.join(relative_output_directory, benchmark, sub_benchmark, "raw"))
+                relative_subbenchmark_directory = os.path.join(relative_benchmark_directory, sub_benchmark)
+                if not os.path.exists(relative_subbenchmark_directory):
+                    os.mkdir(relative_subbenchmark_directory)
+                    os.mkdir(os.path.join(relative_subbenchmark_directory, "raw"))
 
 
     # NOTE: Override to define how to run your experiment
@@ -76,6 +81,7 @@ class experiment():
         # Save the exe-prefixes: overwritten later for paths and different numa nodes
         exe_prefixes_before = general_configs["exe-prefixes"].copy()
         for benchmark_suite in self.benchmark_suites:
+            if self.benchmark_suites[benchmark_suite] == []: continue
             for benchmark in self.benchmark_suites[benchmark_suite]:
                 self.execute(general_configs, benchmark)
         general_configs["exe-prefixes"] = exe_prefixes_before
@@ -92,13 +98,14 @@ class experiment():
         complete_results = {}
         experiment_output_path = os.path.join(general_configs["paths"]["results-directory"], self.output_directory)
         for benchmark_suite in self.benchmark_suites:
+            if self.benchmark_suites[benchmark_suite] == []: continue
             complete_results[benchmark_suite] = {}
             suite_output_path = os.path.join(experiment_output_path, self.benchmark_suites[benchmark_suite][0].suite)
             for benchmark in self.benchmark_suites[benchmark_suite]:
                 complete_results[benchmark.suite][benchmark.name] = {}
                 benchmark_output_path = os.path.join(suite_output_path, benchmark.name)
                 self.process(general_configs, complete_results, benchmark)
-                write_data(complete_results, os.path.join(benchmark_output_path, benchmark.name + ".json"))
+                # write_data(complete_results, os.path.join(benchmark_output_path, benchmark.name + ".json"))
             write_data(complete_results, os.path.join(suite_output_path, benchmark.suite + ".json"))
         write_data(complete_results, os.path.join(experiment_output_path, self.name + ".json"))
         self.results = complete_results
@@ -156,7 +163,7 @@ class numa_mode_compare(experiment):
             general_configs["exe-prefixes"]["numa"] = "sudo numactl --cpunodebind=" + str(cpu_node) + \
                     " --membind=" + str(mem_node)
 
-            output_glob_order = "-".join([benchmark.name, mem_config])
+            output_glob_order = "-".join([mem_config, benchmark.name])
             benchmark.active_glob = os.path.join(self.output_directory, \
                     benchmark.suite, benchmark.name, "raw", output_glob_order)
             benchmark.execute_wrapper(general_configs)
@@ -164,7 +171,7 @@ class numa_mode_compare(experiment):
 
     def process(self, general_configs, complete_results, benchmark):
         for mem_config in self.mem_configs:
-            output_glob_order = [benchmark.name, mem_config]
+            output_glob_order = [mem_config, benchmark.name]
             benchmark.active_glob = os.path.join(general_configs["paths"]["results-directory"], \
                 self.output_directory, benchmark.suite, benchmark.name, "raw", "-".join(output_glob_order))
             complete_results[benchmark.suite][benchmark.name][mem_config] = benchmark.process_wrapper(general_configs)

@@ -27,21 +27,12 @@ Manage Redis: Force redis to a specific NUMA node if need be
 def manage_redis(general_configs, action):
     errors = 0
     if (action == "start"):
-        # Remove any backed up db files to lighten load on starting new server and prevent cloging up storage
-        possible_directories = [general_configs["paths"]["script-root"], \
-            general_configs["paths"]["redis-directory"], os.getcwd()]
-        for directory in possible_directories:
-            try:
-                os.remove(directory + "/*.rdb")
-            except:
-                pass
-
         # Create command dependent on what NUMA preferences found within the configuration files
         cmd = general_configs["exe-prefixes"]["numa"]
         cmd += " " + os.path.join(general_configs["paths"]["redis-directory"], "redis-server")
 
         # Try running the redis-server on the desired NUMA configuration
-        print_step("TOOLS", Fore.CYAN, "REDIS-START-CMD: " + cmd)
+        print_step("TOOLS", Fore.CYAN, "Redis start command: " + cmd)
         try:
             redis_proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             time.sleep(2)
@@ -50,6 +41,7 @@ def manage_redis(general_configs, action):
 
     else:
         # Try to flush the redis server to save up a bit of memory
+        print_step("TOOLS", Fore.CYAN, "Redis flush and kill")
         try:
             subprocess.run(os.path.join(general_configs["paths"]["redis-directory"], "redis-cli") + " FLUSHALL", \
                         shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -66,6 +58,15 @@ def manage_redis(general_configs, action):
             time.sleep(2)
         except:
             print_error("Could not kill Redis server"); errors += 1
+
+        # Remove any backed up db files to lighten load on starting new server and prevent cloging up storage
+        possible_directories = [general_configs["paths"]["script-root"], \
+            general_configs["paths"]["redis-directory"], os.getcwd()]
+        for directory in possible_directories:
+            try:
+                os.remove(directory + "/*.rdb")
+            except:
+                pass
     return errors
 
 

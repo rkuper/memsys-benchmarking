@@ -36,8 +36,8 @@ def parse_general_yml(configs):
         if general == "paths":
             configs["general"][general]["script-root"] = os.getcwd()
             if "redis-directory" in configs["general"][general]:
-                configs["general"][general]["redis-directory"] = os.getcwd() + \
-                    configs["general"][general]["redis-directory"]
+                configs["general"][general]["redis-directory"] = os.path.join(os.getcwd(),
+                    configs["general"][general]["redis-directory"])
             if general == "experiments":
                 for experiment in configs["general"][general]:
                     if experiment not in configs["experiments"]:
@@ -62,13 +62,15 @@ def parse_experiment_yml(configs):
                     output_directories.append(output_directory)
             elif setting == "benchmarks":
                 for benchmark in configs["experiments"][experiment][setting]:
+                    if configs["experiments"][experiment][setting][benchmark] == None: continue
                     found_benchmark = False
-                    for suite in configs["benchmarks"]:
-                        for available_benchmark in configs["benchmarks"][suite]:
-                            if available_benchmark == benchmark:
-                                found_benchmark = True
-                    if not found_benchmark:
-                        print_error("Could not find benchmark, " + benchmark); parse_errors += 1
+                    for specific_benchmark in configs["experiments"][experiment][setting][benchmark]:
+                        for suite in configs["benchmarks"]:
+                            for available_benchmark in configs["benchmarks"][suite]:
+                                if available_benchmark == specific_benchmark:
+                                    found_benchmark = True
+                        if not found_benchmark:
+                            print_error("Could not find benchmark, " + benchmark); parse_errors += 1
     return parse_errors
 
 def parse_benchmark_yml(configs):
@@ -127,6 +129,10 @@ def build_benchmarks(benchmark_configs, experiment_benchmarks):
 
         # Begin building objects
         for benchmark in benchmark_configs[benchmark_suite]:
+
+            if (experiment_benchmarks[benchmark_suite] == None) or \
+                    (benchmark not in experiment_benchmarks[benchmark_suite]):
+                continue
 
             # Step 1. Create needed benchmark type dynamically based on name
             if globals().get(benchmark_suite) is not None:
@@ -190,7 +196,7 @@ def build_experiments(configs):
                 experiment_i.benchmark_suites = benchmark_suites
                 experiment_i.benchmarks_pathing = benchmarks_pathing
 
-                # Default active output file just in case an experiment forgot to make one
+                # Default active glob just in case an experiment forgot to make one
                 # also add suite and benchmark dictionary result entries to the experiment for processing
                 for benchmark_suite in benchmark_suites:
                     for benchmark in benchmark_suites[benchmark_suite]:
@@ -207,7 +213,7 @@ def build_experiments(configs):
                     return experiments, errors
 
         if "execute" in experiment_i.operations:
-            experiment_i.create_result_directories()
+            experiment_i.create_result_directories(configs["general"]["retain-old-logs"])
 
         # Step 4. Append experiment to the list of experiments to return
         experiments.append(experiment_i)
@@ -245,6 +251,8 @@ def main():
             "Experiments configuration YAML file (default = experiments.yml)", default="experiments.yml")
     parser.add_argument("-b", "--benchmarks", help = \
             "Benchmarks configuration YAML file (default = benchmarks.yml)", default="benchmarks.yml")
+    parser.add_argument("-r", "--retain_old_logs", help = \
+            "When executing or processing, do not delete old data (default = false)", action='store_true')
     parser.add_argument("-i", "--interactive", help = \
             "Interactive mode for confirming options and interacting with the analysis tool", action='store_true')
     args = parser.parse_args()
@@ -265,6 +273,7 @@ def main():
             configs[config] = loaded_config
     except yaml.YAMLError as exception:
         print_error(exception); print_error(config_filename + " configuration file is not formatted correctly!"); return
+    configs["general"]["retain-old-logs"] = args.retain_old_logs
 
     # Create the general directories if not found
     general_directories = ["results", "benchmarks", "tools", "scripts"]
