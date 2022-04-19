@@ -4,8 +4,8 @@ numa_mode_compare:
         output-directory       : "numa_mode_compare" # If this path is not there, default directory is experiment name
     operations:
         # - execute
-        - process
-        # - analyze
+        # - process
+        - analyze
     numa-node-configs:                   # Used to set up different numa locality configurations
         small-cpu-node         : 1       # NUMA node with low memory capacity
         small-mem-node         : 1       # NUMA node with low memory capacity

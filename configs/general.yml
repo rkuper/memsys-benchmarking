@@ -17,8 +17,9 @@ exe-prefixes:
     numa                   : "sudo numactl --cpunodebind=0 --membind=0" # Overwrite nodes if desired in experiments.execute(...)
 execution:
 paths:
-    script-root            : "Null" # Overwritten in script for current working directory
+    script-root            : "Null" # Overwritten to current working directory
     redis-directory        : "tools/redis/src"
     results-directory      : "results"
+    analysis-directory     : "analysis"
 experiments:                        # List of experiments to run
   - numa_mode_compare

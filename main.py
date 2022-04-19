@@ -18,6 +18,7 @@ import yaml
 import numa
 import re
 import json
+import matplotlib.pyplot as plt
 from collections import Counter
 from colorama import Fore, Back, Style
 sys.path.insert(0, 'scripts')
@@ -56,7 +57,8 @@ def parse_experiment_yml(configs):
             elif setting == "paths":
                 output_directory = configs["experiments"][experiment][setting]["output-directory"]
                 if output_directory in output_directories:
-                    print_error("Found duplicate output directory, " + output_directory + ", in multiple experiments")
+                    print_error("Found duplicate output directory, " + output_directory + \
+                                    ", in multiple experiments")
                     parse_errors += 1
                 else:
                     output_directories.append(output_directory)
@@ -83,7 +85,8 @@ def parse_benchmark_yml(configs):
             executable = os.path.join(configs["benchmarks"][suite][benchmark]["info"]["path"], \
                             configs["benchmarks"][suite][benchmark]["info"]["executable"])
             if not (os.path.exists(executable)):
-                print_error("Executable for benchmark " + benchmark + " could not be found"); parse_errors += 1
+                print_error("Executable for benchmark " + benchmark + \
+                            " could not be found"); parse_errors += 1
     return parse_errors
 
 
@@ -148,7 +151,8 @@ def build_benchmarks(benchmark_configs, experiment_benchmarks):
                 if parameter in benchmark_configs["overrides"]:
                     benchmark_i.add_parameter(parameter, benchmark_configs["overrides"][parameter])
                 else:
-                    benchmark_i.add_parameter(parameter, benchmark_configs[benchmark_suite][benchmark]["parameters"][parameter])
+                    benchmark_i.add_parameter(parameter, \
+                            benchmark_configs[benchmark_suite][benchmark]["parameters"][parameter])
 
             # Append benchmark to benchmark list
             benchmarks_pathing[benchmark_suite].append(benchmark)
@@ -212,8 +216,10 @@ def build_experiments(configs):
                     print_error("Found error(s) in experiment, " + experiment.name + ", configurations")
                     return experiments, errors
 
-        if "execute" in experiment_i.operations:
-            experiment_i.create_result_directories(configs["general"]["retain-old-logs"])
+        for operation in experiment_i.operations:
+            experiment_i.create_output_directories(\
+                        configs["general"], operation, \
+                        configs["general"]["retain-old"])
 
         # Step 4. Append experiment to the list of experiments to return
         experiments.append(experiment_i)
@@ -233,7 +239,7 @@ def operate_experiments(general_configs, experiments):
             elif operation == "process":
                 experiment.process_wrapper(general_configs)
             elif operation == "analyze":
-                experiment.analyze(general_configs)
+                experiment.analyze_wrapper(general_configs)
     return
 
 
@@ -251,8 +257,8 @@ def main():
             "Experiments configuration YAML file (default = experiments.yml)", default="experiments.yml")
     parser.add_argument("-b", "--benchmarks", help = \
             "Benchmarks configuration YAML file (default = benchmarks.yml)", default="benchmarks.yml")
-    parser.add_argument("-r", "--retain_old_logs", help = \
-            "When executing or processing, do not delete old data (default = false)", action='store_true')
+    parser.add_argument("-r", "--retain_old", help = \
+            "Do not delete old data - *.json or graphs (default = false)", action='store_true')
     parser.add_argument("-i", "--interactive", help = \
             "Interactive mode for confirming options and interacting with the analysis tool", action='store_true')
     args = parser.parse_args()
@@ -273,10 +279,10 @@ def main():
             configs[config] = loaded_config
     except yaml.YAMLError as exception:
         print_error(exception); print_error(config_filename + " configuration file is not formatted correctly!"); return
-    configs["general"]["retain-old-logs"] = args.retain_old_logs
+    configs["general"]["retain-old"] = args.retain_old
 
     # Create the general directories if not found
-    general_directories = ["results", "benchmarks", "tools", "scripts"]
+    general_directories = ["results", "benchmarks", "tools", "scripts", "analysis"]
     for general_directory in general_directories:
         if not os.path.exists(general_directory): os.mkdir(general_directory)
 

@@ -16,6 +16,7 @@ import argparse
 import yaml
 import numa
 import json
+import matplotlib.pyplot as plt
 from collections import Counter
 from colorama import Fore, Back, Style
 

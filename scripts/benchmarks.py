@@ -18,6 +18,7 @@ import yaml
 import numa
 import re
 import json
+import matplotlib.pyplot as plt
 from collections import Counter
 from colorama import Fore, Back, Style
 from backends import *
@@ -66,13 +67,16 @@ class benchmark:
 
 
     def change_pcm_output_csv_files(self, general_configs, name):
-        root_to_glob = os.path.join(general_configs["paths"]["script-root"], general_configs["paths"]["results-directory"], name)
+        root_to_glob = os.path.join( \
+                            general_configs["paths"]["script-root"], \
+                            general_configs["paths"]["results-directory"], name)
         for exe_prefix in general_configs["exe-prefixes"]:
             if "pcm" in exe_prefix:
                 new_exe_pcm_prefix = general_configs["exe-prefixes"][exe_prefix].split(" ")
                 for parameter_index in range(len(new_exe_pcm_prefix)):
                     if "csv" in new_exe_pcm_prefix[parameter_index]:
-                        new_exe_pcm_prefix[parameter_index] = "-csv=" + root_to_glob + "-" + exe_prefix + ".csv"
+                        new_exe_pcm_prefix[parameter_index] = "-csv=" + root_to_glob + \
+                                                    "-" + exe_prefix + ".csv"
                 general_configs["exe-prefixes"][exe_prefix] = " ".join(new_exe_pcm_prefix)
 
 
@@ -116,7 +120,8 @@ class benchmark:
         for parameter in final_numa_results:
             output_fp.write(parameter + " = " + str(final_numa_results[parameter]) + "\n")
         output_fp.close()
-        print_step("EXECUTE - FINISH", Fore.GREEN, "Time taken (nearest second): " + str(end_time - start_time) + "s")
+        print_step("EXECUTE - FINISH", Fore.GREEN, "Time taken (nearest second): " + \
+                    str(end_time - start_time) + "s")
 
 
     # NOTE: Overwrite this if needed for each added benchmark suite!
@@ -235,7 +240,8 @@ class benchmark:
         data["general"] = {}
         data["general"]["System"] = {}
         data["general"]["System"]["Sockets"] = {}
-        num_sockets = int(subprocess.check_output('cat /proc/cpuinfo | grep "physical id" | sort -u | wc -l', shell=True))
+        num_sockets = int(subprocess.check_output('cat /proc/cpuinfo | grep "physical id" | sort -u | wc -l', \
+                            shell=True))
         for socket in range(num_sockets):
             data["general"]["System"]["Sockets"]["Socket " + str(socket)] = {}
             data["general"]["System"]["Sockets"]["Socket " + str(socket)]["Cores"] = {}
@@ -345,7 +351,8 @@ class ycsb(benchmark):
             processed_data[mode] = {}
             self.active_glob = '-'.join([original_glob, mode])
             for sample in range(general_configs["script-settings"]["samples"]):
-                process_str_order=["Suite=" + self.suite, "Benchmark=" + self.name, "mode=" + mode, "Sample=" + str(sample)]
+                process_str_order=["Suite=" + self.suite, "Benchmark=" + self.name, "mode=" + mode, \
+                                    "Sample=" + str(sample)]
                 self.active_name = '-'.join([self.active_glob, str(sample)])
                 self.process(general_configs, processed_data[mode], sample, process_str_order)
             # Flatten the data processed from each sample
