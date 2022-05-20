@@ -1,5 +1,6 @@
 results/*
 tools/*
 configs/*
+analysis/*
 __pycache__
 scripts/__pycache__

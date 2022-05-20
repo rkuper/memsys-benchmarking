@@ -18,6 +18,7 @@ import yaml
 import numa
 import re
 import json
+import numpy as np
 import matplotlib.pyplot as plt
 from collections import Counter
 from colorama import Fore, Back, Style
@@ -166,7 +167,8 @@ class benchmark:
                                     if category == "System":
                                         data["System"][sub_category] = value
                                     else:
-                                        data["System"][category[len("System "):]] = {}
+                                        if category[len("System "):] not in data["System"]:
+                                            data["System"][category[len("System "):]] = {}
                                         data["System"][category[len("System "):]][sub_category] = value
 
                                 elif "Socket" in category:

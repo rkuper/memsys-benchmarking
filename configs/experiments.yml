@@ -29,11 +29,11 @@ numa_mode_compare:
             # - sphinx-integrated
             # - sphinx-networked
         ycsb:
-            - workloada
-            - workloadb
-            - workloadc
-            - workloadf
-            - workloadd
+            # - workloada
+            # - workloadb
+            # - workloadc
+            # - workloadf
+            # - workloadd
         memtier:
             # - memtier
         pmbench:

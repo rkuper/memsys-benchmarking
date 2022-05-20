@@ -19,6 +19,7 @@ import yaml
 import numa
 import re
 import json
+import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from collections import Counter
@@ -206,11 +207,18 @@ class numa_mode_compare(experiment):
 
 
     def analyze(self, general_configs, benchmark):
-        for mem_config in general_configs["numa-mem-configs"]:
+        x_categories = {}
+        for mem_config in self.mem_configs:
+            x_categories[mem_config] = []
             # TODO: Collect data (historgram, etc.) per mem_config, then plot into separate graphs
             # Basically copy what I had had from the spreadsheet
             benchmark.active_glob = os.path.join(general_configs["paths"]["analysis-directory"], \
                     self.output_directory, benchmark.suite, benchmark.name, benchmark.name + "-" + mem_config)
+
+            x_categories[config].append(self.results[benchmark.suite][benchmark.name][mem_config]["general"]\
+                    ["general"]["System"]["Pack C-States"]["LLCRDMISSLAT (ns)"])
+
+
 
 
         pass

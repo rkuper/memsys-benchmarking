@@ -18,6 +18,7 @@ import yaml
 import numa
 import re
 import json
+import numpy as np
 import matplotlib.pyplot as plt
 from collections import Counter
 from colorama import Fore, Back, Style
