@@ -40,6 +40,7 @@ class experiment():
     def __init__(self, name="Null"):
         self.name = name
         self.benchmark_suites = {}
+        self.analysis_metrics = {"general": [], "specific": {}}
         self.benchmarks_pathing = {}
         self.results = {}
         self.output_directory = "Null"
@@ -66,15 +67,16 @@ class experiment():
             if self.benchmarks_pathing[benchmark_suite] == []: continue
             relative_suite_directory = os.path.join(relative_output_directory, benchmark_suite)
             if not os.path.exists(relative_suite_directory): os.mkdir(relative_suite_directory)
-            for benchmark in self.benchmarks_pathing[benchmark_suite]:
-                relative_benchmark_directory = os.path.join(relative_suite_directory, benchmark)
-                if os.path.exists(relative_benchmark_directory):
-                    if not retain_old and operation != "analyze":
-                        shutil.rmtree(relative_benchmark_directory)
-                else:
-                    os.mkdir(relative_benchmark_directory)
-                    if operation != "analyze":
-                        os.mkdir(os.path.join(relative_benchmark_directory, "raw"))
+            if operation != "analyze":
+                for benchmark in self.benchmarks_pathing[benchmark_suite]:
+                    relative_benchmark_directory = os.path.join(relative_suite_directory, benchmark)
+                    if os.path.exists(relative_benchmark_directory):
+                        if not retain_old and operation != "analyze":
+                            shutil.rmtree(relative_benchmark_directory)
+                    else:
+                        os.mkdir(relative_benchmark_directory)
+                        if operation != "analyze":
+                            os.mkdir(os.path.join(relative_benchmark_directory, "raw"))
 
 
     # NOTE: Override to define how to run your experiment
@@ -122,25 +124,109 @@ class experiment():
         self.results = complete_results
 
 
-    def analyze(self, general_configs, benchmark):
-        benchmark.active_glob = os.path.join(general_configs["paths"]["analysis-directory"], \
-            self.output_directory, benchmark.suite, benchmark.name, benchmark.name)
-        pass
+    def analyze_gather_metric_type_data(self, flattened_results, benchmark_plot_info, \
+                benchmark_suite, metric, group, partial_metric_string):
+        full_metric_string = partial_metric_string.copy()
+        for metric_substring in metric.split('_'):
+            full_metric_string.append(metric_substring)
+        used_data_entries = []
+        found_data = False
+        for data_entry in flattened_results:
+            if all(ele in data_entry for ele in full_metric_string) and \
+                    data_entry not in used_data_entries:
+                benchmark_plot_info[benchmark_suite][metric]["data"][group].append(flattened_results[data_entry])
+                used_data_entries.append(data_entry)
+                found_data = True
+                break
+        if not found_data:
+            print_warning("Could not find data for " + "_".join(full_metric_string))
+            benchmark_plot_info[benchmark_suite][metric]["data"][group].append(0.0)
+
+
+    def analyze_gather_metrics(self, flattened_results, benchmark_plot_info, benchmark_suite, metric, group):
+        benchmark_plot_info[benchmark_suite][metric]["groups"].append(group)
+        benchmark_plot_info[benchmark_suite][metric]["data"][group] = []
+        for benchmark in self.benchmark_suites[benchmark_suite]:
+            for benchmark_category in benchmark.analyze_categories:
+                partial_metric_string = [benchmark.name]
+                if group != "default":
+                    partial_metric_string.append(group)
+
+                if benchmark_category != "general":
+                    benchmark_plot_info[benchmark_suite][metric]["labels"].append(\
+                            benchmark.name + "-" + benchmark_category)
+                    partial_metric_string.append(benchmark_category)
+                else:
+                    benchmark_plot_info[benchmark_suite][metric]["labels"].append(benchmark.name)
+
+                self.analyze_gather_metric_type_data(flattened_results, benchmark_plot_info, \
+                        benchmark_suite, metric, group, partial_metric_string)
+
+
+    # NOTE: Implement this per experiment
+    def analyze(self, flattened_results, benchmark_plot_info, benchmark_suite, metric):
+        for group in ["default"]:
+            self.analyze_gather_metrics(flattened_results, benchmark_plot_info, benchmark_suite, metric, group)
+
+
+    def graph(self, general_configs, benchmark_plot_info, benchmark_suite):
+        for metric in benchmark_plot_info[benchmark_suite]:
+            plt.rcParams["figure.figsize"] = (general_configs["graph-settings"]["width"], \
+                                              general_configs["graph-settings"]["height"])
+            ind = np.arange(len(benchmark_plot_info[benchmark_suite][metric]["labels"]))
+            width = 1/(len(benchmark_plot_info[benchmark_suite][metric]["groups"]) + 1)
+
+            current_width = 0
+            for group in benchmark_plot_info[benchmark_suite][metric]["groups"]:
+                plt.bar(ind + current_width, \
+                        benchmark_plot_info[benchmark_suite][metric]["data"][group], \
+                        width = width, label = group)
+                current_width += width
+
+            plt.xlabel(benchmark_suite + " Benchmarks")
+            plt.ylabel(metric)
+            plt.title(benchmark_suite + "'s " + metric + " values for the " + self.name + " experiment")
+            plt.xticks(ind + width, benchmark_plot_info[benchmark_suite][metric]["labels"])
+            plt.ylim(ymin = general_configs["graph-settings"]["y-min"])
+            plt.legend()
+            graph_name = "-".join([self.name, benchmark_suite, metric]) + ".png"
+            graph_path = "/".join([general_configs["paths"]["analysis-directory"], \
+                                    self.name, benchmark_suite, graph_name])
+            plt.savefig(graph_path)
 
 
     def analyze_wrapper(self, general_configs):
-        if self.results == {}:
+        if "process" not in self.operations:
             print_warning("Results not actively loaded, attempting to restore from .json file")
-            results_path = os.path.join(general_configs["results-directory"], \
+            results_path = os.path.join(general_configs["paths"]["results-directory"], \
                                         self.name, self.name + ".json")
-            if not os.path.exists(self.name + ".json"):
+            if not os.path.exists(results_path):
                 print_error("Could not find " + self.name + ".json"); return
-            self.results = json.load(results_path)
+            self.results = json.load(open(results_path,))
 
+        benchmark_plot_info = {}
         for benchmark_suite in self.benchmark_suites:
-            if self.benchmark_suites[benchmark_suite] == []: continue
-            for benchmark in self.benchmark_suites[benchmark_suite]:
-                self.analyze(general_configs, benchmark)
+            if (benchmark_suite not in self.results): continue
+            flattened_results = { k:v for k,v in flatten_dict(self.results[benchmark_suite]) }
+            benchmark_plot_info[benchmark_suite] = {}
+            if self.analysis_metrics["general"] != None:
+                for metric in self.analysis_metrics["general"]:
+                    benchmark_plot_info[benchmark_suite][metric] = {"groups" : [], "labels" : [], "data" : {}}
+                    self.analyze(flattened_results, benchmark_plot_info, benchmark_suite, metric)
+            if self.analysis_metrics["specific"][benchmark_suite] != None:
+                for metric in self.analysis_metrics["specific"][benchmark_suite]:
+                    benchmark_plot_info[benchmark_suite][metric] = {"groups" : [], "labels" : [], "data" : {}}
+                    self.analyze(flattened_results, benchmark_plot_info, benchmark_suite, metric)
+
+            for metric in benchmark_plot_info[benchmark_suite]:
+                labels = []
+                for label in benchmark_plot_info[benchmark_suite][metric]["labels"]:
+                    if label not in labels: labels.append(label)
+                benchmark_plot_info[benchmark_suite][metric]["labels"] = labels
+
+            self.graph(general_configs, benchmark_plot_info, benchmark_suite)
+
+
 
 
 
@@ -206,19 +292,6 @@ class numa_mode_compare(experiment):
                     benchmark.process_wrapper(general_configs)
 
 
-    def analyze(self, general_configs, benchmark):
-        x_categories = {}
-        for mem_config in self.mem_configs:
-            x_categories[mem_config] = []
-            # TODO: Collect data (historgram, etc.) per mem_config, then plot into separate graphs
-            # Basically copy what I had had from the spreadsheet
-            benchmark.active_glob = os.path.join(general_configs["paths"]["analysis-directory"], \
-                    self.output_directory, benchmark.suite, benchmark.name, benchmark.name + "-" + mem_config)
-
-            x_categories[config].append(self.results[benchmark.suite][benchmark.name][mem_config]["general"]\
-                    ["general"]["System"]["Pack C-States"]["LLCRDMISSLAT (ns)"])
-
-
-
-
-        pass
+    def analyze(self, flattened_results, benchmark_plot_info, benchmark_suite, metric):
+        for group in self.mem_configs:
+            self.analyze_gather_metrics(flattened_results, benchmark_plot_info, benchmark_suite, metric, group)

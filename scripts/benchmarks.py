@@ -40,6 +40,7 @@ class benchmark:
         self.parameters = []
         self.info = {}
         self.results = {}
+        self.analyze_categories = ["general"]
 
     def add_info(self, name, value):
         self.info[name] = str(value)
@@ -291,6 +292,7 @@ class tailbench(benchmark):
 class ycsb(benchmark):
     def __init__(self, name="Null"):
         super().__init__(name, "ycsb")
+        self.analyze_categories = ["load", "run"]
         self.name = name
 
     def add_parameter(self, name, value):

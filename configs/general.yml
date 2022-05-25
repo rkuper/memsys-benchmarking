@@ -1,9 +1,11 @@
 # General info for all benchmarks
+#
 # "exe-prefixes" are the statements before commands to typically capture performance results
 #     like Intel's pcm or vtune, or AMD's uprof
 #     NOTE: Using multiple performance monitors can cause issues since they may use the same
 #          performance counters. Also, both vtune and uprof are not installed by this repo
 #          and may need to be adjusted to get the correct executable path
+#
 # "numa-config" contains info for the defaulted NUMA nodes (remote is meant to contain far
 #     less memory than local).
 script-settings:
@@ -15,7 +17,6 @@ exe-prefixes:
     pcm                    : "sudo pcm -csv=temp-pcm.csv --external_program"
     pcm-memory             : "sudo pcm-memory -csv=temp-pcm-memory.csv --external_program"
     numa                   : "sudo numactl --cpunodebind=0 --membind=0" # Overwrite nodes if desired in experiments.execute(...)
-execution:
 paths:
     script-root            : "Null" # Overwritten to current working directory
     redis-directory        : "tools/redis/src"
@@ -23,3 +24,7 @@ paths:
     analysis-directory     : "analysis"
 experiments:                        # List of experiments to run
   - numa_mode_compare
+graph-settings:
+    y-min                  : 0
+    width                  : 20
+    height                 : 8

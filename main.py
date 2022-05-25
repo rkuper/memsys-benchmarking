@@ -134,8 +134,8 @@ def build_benchmarks(benchmark_configs, experiment_benchmarks):
         # Begin building objects
         for benchmark in benchmark_configs[benchmark_suite]:
 
-            if (experiment_benchmarks[benchmark_suite] == None) or \
-                    (benchmark not in experiment_benchmarks[benchmark_suite]):
+            if (experiment_benchmarks[benchmark_suite]["benchmarks"] == None) or \
+                    (benchmark not in experiment_benchmarks[benchmark_suite]["benchmarks"]):
                 continue
 
             # Step 1. Create needed benchmark type dynamically based on name
@@ -194,10 +194,14 @@ def build_experiments(configs):
 
         # Step 2b. Add experiment's configurations from the configuration yml file
         for config in configs["experiments"][experiment_name]:
-            if config == "benchmarks":
+            if config == "general-analysis-metrics":
+                for metric in configs["experiments"][experiment_name][config]:
+                    experiment_i.analysis_metrics["general"].append(metric)
+
+            elif config == "suites":
                 # Step 3.  Add built benchmarks to experiment
                 benchmark_suites, benchmarks_pathing = build_benchmarks(configs["benchmarks"], \
-                                                configs["experiments"][experiment_name]["benchmarks"])
+                                                configs["experiments"][experiment_name]["suites"])
                 experiment_i.benchmark_suites = benchmark_suites
                 experiment_i.benchmarks_pathing = benchmarks_pathing
 
@@ -209,12 +213,21 @@ def build_experiments(configs):
                                 benchmark.suite, benchmark.name, "raw", benchmark.name)
                         if benchmark.suite not in experiment_i.results: experiment_i.results[benchmark.suite] = {}
                         experiment_i.results[benchmark.suite][benchmark.name] = {}
+
+                # Add the specific metrics to analyze (only used when doing analysis)
+                for suite in configs["experiments"][experiment_name][config]:
+                    experiment_i.analysis_metrics["specific"][suite] = []
+                    if configs["experiments"][experiment_name][config][suite]["specific-metrics"] != None:
+                        for specific_metric in \
+                            configs["experiments"][experiment_name][config][suite]["specific-metrics"]:
+                            experiment_i.analysis_metrics["specific"][suite].append(specific_metric)
+
             elif config == "operations":
                 experiment_i.operations = configs["experiments"][experiment_name][config]
             else:
                 errors = experiment_i.init_config(config, configs["experiments"][experiment_name][config])
                 if errors > 0:
-                    print_error("Found error(s) in experiment, " + experiment.name + ", configurations")
+                    print_error("Found error(s) in experiment, " + experiment_i.name + ", configurations")
                     return experiments, errors
 
         for operation in experiment_i.operations:
@@ -292,7 +305,6 @@ def main():
         return
 
     # Grab all of the benchmarks in a list
-    # benchmarks = build_benchmark_objects(general, configs)
     experiments, errors = build_experiments(configs)
     if errors > 0: return
 

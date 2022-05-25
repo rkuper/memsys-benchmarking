@@ -1,7 +1,7 @@
 # Experiment definitiosn below containing general information on what operations to do
 numa_mode_compare:
     paths:
-        output-directory       : "numa_mode_compare" # If this path is not there, default directory is experiment name
+        output-directory       : "numa_mode_compare" # If not inputted, default directory is experiment name
     operations:
         # - execute
         # - process
@@ -14,31 +14,51 @@ numa_mode_compare:
     numa-mem-configs:
         - local                          # All memory allocated on the same memory and CPU NUMA node
         - remote                         # All memory allocated on different CPU and memory NUMA nodes
-        - both                           # Memory allocated first on same small CPU NUMA node, then on big memory node
-    benchmarks:                          # Benchmarks to run
+        - both                           # Memory allocated first on same small CPU node, then on big mem node
+    general-analysis-metrics:            # General metrics to plot (look at produced json file for metric names)
+        - "C-States_LLCRDMISSLAT"
+    suites:                              # Benchmarks to run
         tailbench:
-            # - img-dnn-integrated
-            # - img-dnn-networked
-            # - masstree-integrated
-            # - moses-integrated
-            # - moses-networked
-            # - silo-integrated
-            # - silo-networked
-            # - specjbb-integrated
-            # - specjbb-networked
-            # - sphinx-integrated
-            # - sphinx-networked
+            benchmarks:
+                # - img-dnn-integrated
+                # - img-dnn-networked
+                # - masstree-integrated
+                # - moses-integrated
+                # - moses-networked
+                # - silo-integrated
+                # - silo-networked
+                # - specjbb-integrated
+                # - specjbb-networked
+                # - sphinx-integrated
+                # - sphinx-networked
+            specific-metrics:
+                # - "throughput"
         ycsb:
-            # - workloada
-            # - workloadb
-            # - workloadc
-            # - workloadf
-            # - workloadd
+            benchmarks:
+                - workloada
+                - workloadb
+                - workloadc
+                - workloadf
+                - workloadd
+            specific-metrics:
+                - "INSERT_99.99PercentileLatency(us)"
         memtier:
-            # - memtier
+            benchmarks:
+                # - memtier
+            specific-metrics:
+                # - "throughput"
         pmbench:
-            - pmbench
+            benchmarks:
+                - pmbench
+            specific-metrics:
+                # - "throughput"
         cachebench:
-            # - cachebench
+            benchmarks:
+                # - cachebench
+            specific-metrics:
+                # - "throughput"
         gapbs:
-            # - gapbs
+            benchmarks:
+                # - gapbs
+            specific-metrics:
+                # - "throughput"
